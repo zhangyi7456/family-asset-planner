@@ -1,126 +1,50 @@
 import { useMemo, useState } from 'react'
-import portfolioPreview from '../assets/hero.png'
+import portfolioStrategyImage from '../assets/portfolio-strategy.png'
+import portfolioStrategyImageWebp from '../assets/portfolio-strategy.webp'
 import { usePlannerData } from '../context/PlannerDataContext'
 import { formatCurrency, formatPercent } from '../lib/format'
-
-interface TargetAllocation {
-  key: 'defensive' | 'growth' | 'longTerm'
-  label: string
-  ratio: number
-  reason: string
-}
-
-function getTargetAllocations(riskProfile: string): TargetAllocation[] {
-  if (riskProfile.includes('稳健')) {
-    return [
-      {
-        key: 'defensive',
-        label: '防御资产（现金+保障）',
-        ratio: 55,
-        reason: '优先保证波动期的现金流安全垫',
-      },
-      { key: 'growth', label: '增长资产（投资）', ratio: 35, reason: '保持长期增值弹性' },
-      { key: 'longTerm', label: '长期资产（房产等）', ratio: 10, reason: '维持稳定底仓' },
-    ]
-  }
-
-  if (riskProfile.includes('平衡')) {
-    return [
-      { key: 'defensive', label: '防御资产（现金+保障）', ratio: 45, reason: '兼顾防守和进攻' },
-      { key: 'growth', label: '增长资产（投资）', ratio: 45, reason: '提升增长权重' },
-      { key: 'longTerm', label: '长期资产（房产等）', ratio: 10, reason: '保留稳定锚点' },
-    ]
-  }
-
-  return [
-    { key: 'defensive', label: '防御资产（现金+保障）', ratio: 35, reason: '仅保留基础防御缓冲' },
-    { key: 'growth', label: '增长资产（投资）', ratio: 55, reason: '追求长期收益上限' },
-    { key: 'longTerm', label: '长期资产（房产等）', ratio: 10, reason: '分散整体组合波动' },
-  ]
-}
+import { calculatePortfolioLinkage } from '../lib/portfolio'
 
 export function PortfolioPage() {
   const { data, metrics } = usePlannerData()
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
-
-  const defensiveAssets = useMemo(
-    () =>
-      data.assets
-        .filter((item) => item.category === 'cash' || item.category === 'insurance')
-        .reduce((total, item) => total + item.amount, 0),
-    [data.assets],
+  const portfolio = useMemo(
+    () => calculatePortfolioLinkage(data, metrics.monthlyFreeCashflow),
+    [data, metrics.monthlyFreeCashflow],
   )
 
-  const growthAssets = useMemo(
-    () =>
-      data.assets
-        .filter((item) => item.category === 'investment')
-        .reduce((total, item) => total + item.amount, 0),
-    [data.assets],
-  )
-
-  const longTermAssets = useMemo(
-    () =>
-      data.assets
-        .filter((item) => item.category === 'housing' || item.category === 'other')
-        .reduce((total, item) => total + item.amount, 0),
-    [data.assets],
-  )
-
-  const totalAssets = metrics.totalAssets
-  const defensiveRatio = totalAssets > 0 ? (defensiveAssets / totalAssets) * 100 : 0
-  const growthRatio = totalAssets > 0 ? (growthAssets / totalAssets) * 100 : 0
-  const longTermRatio = totalAssets > 0 ? (longTermAssets / totalAssets) * 100 : 0
-
-  const currentAllocations = [
-    { key: 'defensive', ratio: defensiveRatio },
-    { key: 'growth', ratio: growthRatio },
-    { key: 'longTerm', ratio: longTermRatio },
-  ] as const
-
-  const targets = getTargetAllocations(data.profile.riskProfile)
-  const targetMap = new Map(targets.map((item) => [item.key, item]))
-  const annualCapacity = Math.max(metrics.monthlyFreeCashflow, 0) * 12
   const totalGoalGap = data.goals.reduce(
     (sum, goal) => sum + Math.max(goal.targetAmount - goal.currentAmount, 0),
     0,
   )
 
-  const allocationDrifts = currentAllocations.map((current) => {
-    const target = targetMap.get(current.key)
-    const targetRatio = target?.ratio ?? 0
-    const drift = current.ratio - targetRatio
-    const rebalanceAmount = (Math.abs(drift) / 100) * totalAssets
-
-    return {
-      key: current.key,
-      label: target?.label ?? '未定义',
-      reason: target?.reason ?? '',
-      currentRatio: current.ratio,
-      targetRatio,
-      drift,
-      rebalanceAmount,
-    }
-  })
-
-  const portfolioImbalance = allocationDrifts.reduce(
-    (sum, item) => sum + Math.abs(item.drift),
-    0,
-  )
-  const largestDrift = allocationDrifts.reduce((max, item) => {
-    return Math.abs(item.drift) > Math.abs(max.drift) ? item : max
-  }, allocationDrifts[0])
+  const dominantDrift =
+    Math.abs(portfolio.defensiveDrift) >= Math.abs(portfolio.growthDrift)
+      ? {
+          label: '防御资产',
+          drift: portfolio.defensiveDrift,
+          rebalance: portfolio.rebalanceToDefensive,
+        }
+      : {
+          label: '增长资产',
+          drift: portfolio.growthDrift,
+          rebalance: portfolio.rebalanceToGrowth,
+        }
 
   const executionTips = [
     metrics.monthlyFreeCashflow <= 0
-      ? '当前月度自由现金流为负，先停止新增投资仓位，优先修复支出结构。'
-      : `当前每年可用于调仓或补仓约 ${formatCurrency(annualCapacity)}，建议按季度执行分步再平衡。`,
-    metrics.liabilityRatio > 45
-      ? `资产负债率 ${formatPercent(metrics.liabilityRatio)} 偏高，新增资金建议优先降负债。`
-      : `资产负债率 ${formatPercent(metrics.liabilityRatio)} 可控，可保留部分资金用于长期投资。`,
+      ? '当前月度自由现金流为负，先修复收支结构，再执行组合再平衡。'
+      : `当前每年可新增可投资资金约 ${formatCurrency(
+          portfolio.annualInvestableFlow,
+        )}，建议分 4 次完成年度调仓。`,
+    Math.abs(dominantDrift.drift) > 5
+      ? `${dominantDrift.label}相对目标偏差 ${formatPercent(
+          Math.abs(dominantDrift.drift),
+        )}，建议调仓约 ${formatCurrency(dominantDrift.rebalance)}。`
+      : '防御/增长两侧偏差已较小，可维持节奏并按月复盘。',
     totalGoalGap > 0
-      ? `目标资金缺口仍有 ${formatCurrency(totalGoalGap)}，建议将新增资金优先投向最近期目标。`
-      : '当前目标资金已基本到位，可把新增现金流转向长期稳健增值。',
+      ? `长期目标仍有 ${formatCurrency(totalGoalGap)} 资金缺口，新增资金优先补最近期目标。`
+      : '长期目标资金准备度较高，可提高长期投资仓位的稳定投入。',
   ]
 
   return (
@@ -131,31 +55,31 @@ export function PortfolioPage() {
             <div>
               <h2>投资组合驾驶舱</h2>
               <p className="caption">
-                结合资产台账、现金流和目标缺口，动态评估“防御-增长-长期”三层资金配置。
+                当前页面与首页总览联动，组合指标和预算指标会同步更新。
               </p>
             </div>
           </div>
 
           <div className="summary-grid">
             <article className="summary-card">
-              <strong>当前总资产</strong>
-              <p>实时来自资产台账汇总。</p>
-              <span className="summary-value">{formatCurrency(metrics.totalAssets)}</span>
+              <strong>可投资资产池</strong>
+              <p>现金、投资、保险及其他资产合并口径（不含自住房净值）。</p>
+              <span className="summary-value">{formatCurrency(portfolio.investableAssets)}</span>
             </article>
             <article className="summary-card">
-              <strong>当前净资产</strong>
-              <p>总资产减去总负债。</p>
-              <span className="summary-value">{formatCurrency(metrics.netWorth)}</span>
+              <strong>防御资产占比</strong>
+              <p>现金+保险+其他，目标 {formatPercent(portfolio.defensiveTargetRatio)}。</p>
+              <span className="summary-value">{formatPercent(portfolio.defensiveRatio)}</span>
             </article>
             <article className="summary-card">
-              <strong>年度可投入资金</strong>
-              <p>按当前自由现金流估算的一年新增能力。</p>
-              <span className="summary-value">{formatCurrency(annualCapacity)}</span>
+              <strong>增长资产占比</strong>
+              <p>投资类资产，目标 {formatPercent(portfolio.growthTargetRatio)}。</p>
+              <span className="summary-value">{formatPercent(portfolio.growthRatio)}</span>
             </article>
             <article className="summary-card">
-              <strong>组合偏离度</strong>
-              <p>当前配置与目标配置的总体偏差。</p>
-              <span className="summary-value">{formatPercent(portfolioImbalance)}</span>
+              <strong>房产净值（独立口径）</strong>
+              <p>作为家庭长期资产锚，不纳入本页可投资仓位目标。</p>
+              <span className="summary-value">{formatCurrency(portfolio.housingAssets)}</span>
             </article>
           </div>
         </section>
@@ -164,7 +88,7 @@ export function PortfolioPage() {
           <div className="section-heading">
             <div>
               <h2>策略参考图</h2>
-              <p className="caption">使用项目内资源，保证本地开发和 GitHub Pages 部署都可显示。</p>
+              <p className="caption">已切换为你提供的“五层家庭投资组合”原图。</p>
             </div>
           </div>
 
@@ -172,22 +96,35 @@ export function PortfolioPage() {
             {imageLoadFailed ? (
               <div className="portfolio-preview-fallback">
                 <strong>图片加载失败</strong>
-                <p className="caption">请确认资源文件存在于 `src/assets/hero.png`。</p>
+                <p className="caption">
+                  请检查资源文件：`src/assets/portfolio-strategy.png`
+                </p>
               </div>
             ) : (
-              <a href={portfolioPreview} target="_blank" rel="noreferrer">
-                <img
-                  className="portfolio-preview-image"
-                  src={portfolioPreview}
-                  alt="家庭投资组合策略参考图"
-                  onError={() => setImageLoadFailed(true)}
-                />
+              <a
+                className="portfolio-preview-link"
+                href={portfolioStrategyImage}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <picture>
+                  <source srcSet={portfolioStrategyImageWebp} type="image/webp" />
+                  <img
+                    className="portfolio-preview-image portfolio-preview-image-wide"
+                    src={portfolioStrategyImage}
+                    alt="五层家庭投资组合策略参考图"
+                    width={1055}
+                    height={1491}
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setImageLoadFailed(true)}
+                  />
+                </picture>
               </a>
             )}
-            <p className="caption">支持点击缩略图查看大图，部署后路径也会自动正确处理。</p>
             <a
               className="secondary-action"
-              href={portfolioPreview}
+              href={portfolioStrategyImage}
               target="_blank"
               rel="noreferrer"
             >
@@ -200,44 +137,24 @@ export function PortfolioPage() {
       <section className="content-panel">
         <div className="section-heading">
           <div>
-            <h2>当前配置 vs 目标配置</h2>
-            <p className="caption">目标配置会根据风险偏好自动切换，并给出再平衡金额参考。</p>
+            <h2>五层策略目标金额</h2>
+            <p className="caption">按当前可投资资产池自动换算每层目标金额，并随首页数据变化。</p>
           </div>
-          <span className="muted">风险偏好：{data.profile.riskProfile}</span>
         </div>
 
         <div className="allocation-grid">
-          {allocationDrifts.map((item) => {
-            const isWithinBand = Math.abs(item.drift) <= 5
-            const directionLabel = item.drift > 0 ? '偏高' : '偏低'
-
-            return (
-              <article key={item.key} className="setting-card">
-                <strong>{item.label}</strong>
-                <p>{item.reason}</p>
-                <div className="allocation-head">
-                  <span>当前 {formatPercent(item.currentRatio)}</span>
-                  <span>目标 {formatPercent(item.targetRatio)}</span>
-                </div>
-                <div className="allocation-track" aria-hidden="true">
-                  <span
-                    className="allocation-fill allocation-current"
-                    style={{ width: `${Math.min(item.currentRatio, 100)}%` }}
-                  />
-                  <span
-                    className="allocation-fill allocation-target"
-                    style={{ width: `${Math.min(item.targetRatio, 100)}%` }}
-                  />
-                </div>
-                <p className="muted">
-                  偏差 {formatPercent(Math.abs(item.drift))}（{directionLabel}）；
-                  {isWithinBand
-                    ? ' 当前偏差在可接受区间。'
-                    : ` 建议调仓约 ${formatCurrency(item.rebalanceAmount)}。`}
-                </p>
-              </article>
-            )
-          })}
+          {portfolio.layers.map((layer) => (
+            <article key={layer.id} className="setting-card">
+              <strong>
+                {layer.id}. {layer.title}
+              </strong>
+              <p>{layer.code}</p>
+              <div className="allocation-head">
+                <span>目标占比 {formatPercent(layer.targetRatio)}</span>
+                <span>目标金额 {formatCurrency(layer.targetAmount)}</span>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -245,20 +162,20 @@ export function PortfolioPage() {
         <div className="section-heading">
           <div>
             <h2>执行建议</h2>
-            <p className="caption">结合现金流、杠杆和目标缺口，给出可以直接执行的动作。</p>
+            <p className="caption">结合组合偏差、现金流和目标缺口给出执行动作。</p>
           </div>
         </div>
 
-        <div className="planning-grid">
-          <article className="plan-card">
-            <strong>优先再平衡方向</strong>
+        <div className="insight-grid">
+          <article className="signal-card signal-card-warn">
+            <strong>偏差最大项</strong>
             <p>
-              当前偏离最大的配置为“{largestDrift.label}”，偏差{' '}
-              {formatPercent(Math.abs(largestDrift.drift))}。
+              当前偏差最大的是 {dominantDrift.label}，偏差{' '}
+              {formatPercent(Math.abs(dominantDrift.drift))}。
             </p>
           </article>
           {executionTips.map((tip) => (
-            <article key={tip} className="plan-card">
+            <article key={tip} className="signal-card">
               <strong>执行动作</strong>
               <p>{tip}</p>
             </article>

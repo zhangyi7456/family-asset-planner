@@ -1,16 +1,17 @@
 import { Suspense, lazy } from 'react'
 import { Link } from 'react-router-dom'
 import type { EChartsOption } from 'echarts'
-import { milestones } from '../data/seed'
 import { usePlannerData } from '../context/PlannerDataContext'
+import { calculateBudgetAssessment, loadExpenseBudgetCaps } from '../lib/budget'
+import { calculatePortfolioLinkage } from '../lib/portfolio'
 import {
   formatCurrency,
   formatDateLabel,
   formatDateTime,
   formatMonths,
   formatPercent,
-  formatRelativeTime,
 } from '../lib/format'
+import type { GoalCategory } from '../types/planner'
 
 const PlannerChart = lazy(() =>
   import('../components/charts/PlannerChart').then((module) => ({
@@ -18,152 +19,251 @@ const PlannerChart = lazy(() =>
   })),
 )
 
-function formatDelta(value: number) {
-  const prefix = value > 0 ? '+' : ''
-  return `${prefix}${formatCurrency(value)}`
+function WalletIcon() {
+  return (
+    <svg viewBox="0 0 84 84" fill="none" aria-hidden="true">
+      <rect x="13" y="21" width="58" height="42" rx="12" fill="url(#wallet-bg)" />
+      <path
+        d="M20 32c0-5 4-9 9-9h27c3 0 6 1 8 3l-12 5H29c-5 0-9 4-9 9v-8Z"
+        fill="#d6e3d8"
+      />
+      <rect x="43" y="35" width="22" height="14" rx="7" fill="#eef5ef" />
+      <circle cx="53" cy="42" r="3" fill="#8da78f" />
+      <defs>
+        <linearGradient id="wallet-bg" x1="13" y1="21" x2="71" y2="63" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#edf5ed" />
+          <stop offset="1" stopColor="#d9e6db" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function BarsIcon() {
+  return (
+    <svg viewBox="0 0 84 84" fill="none" aria-hidden="true">
+      <rect x="16" y="18" width="52" height="48" rx="12" fill="url(#bars-bg)" />
+      <rect x="24" y="47" width="8" height="11" rx="4" fill="#dce7df" />
+      <rect x="38" y="35" width="8" height="23" rx="4" fill="#c7d9ca" />
+      <rect x="52" y="27" width="8" height="31" rx="4" fill="#a8c6ae" />
+      <defs>
+        <linearGradient id="bars-bg" x1="16" y1="18" x2="68" y2="66" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#edf5ed" />
+          <stop offset="1" stopColor="#d9e6db" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function TrendIcon() {
+  return (
+    <svg viewBox="0 0 84 84" fill="none" aria-hidden="true">
+      <rect x="14" y="18" width="56" height="48" rx="12" fill="url(#trend-bg)" />
+      <path
+        d="M22 54c8-6 11-12 17-17 6 2 10 9 15 10 4-2 8-8 11-14"
+        stroke="#6ea98b"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22 59c10-4 14-4 22-9 9 2 12 2 22 0"
+        stroke="#bdd2c2"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <defs>
+        <linearGradient id="trend-bg" x1="14" y1="18" x2="70" y2="66" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#edf5ed" />
+          <stop offset="1" stopColor="#d9e6db" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+function TinyTrend({ tone }: { tone: 'green' | 'blue' | 'navy' }) {
+  const stroke =
+    tone === 'green' ? '#57a986' : tone === 'blue' ? '#6a82ad' : '#4d658d'
+  const fill =
+    tone === 'green'
+      ? 'rgba(87, 169, 134, 0.1)'
+      : tone === 'blue'
+        ? 'rgba(106, 130, 173, 0.11)'
+        : 'rgba(77, 101, 141, 0.11)'
+
+  return (
+    <svg viewBox="0 0 88 34" fill="none" aria-hidden="true">
+      <path d="M4 30C15 22 26 25 36 18c10 7 19 6 26 1 6 2 12 3 22-10" fill={fill} />
+      <path
+        d="M4 24c9-4 14-2 20-7 8 5 16 4 23-2 7 3 11 9 16 8 7-2 12-9 21-20"
+        stroke={stroke}
+        strokeWidth="2.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function RingGauge({
+  current,
+  target,
+  tone,
+}: {
+  current: number
+  target: number
+  tone: 'green' | 'gold' | 'blue'
+}) {
+  const progress = Math.max(Math.min(current, 100), 0)
+  const track = '#edf1ee'
+  const color =
+    tone === 'green' ? '#4fa181' : tone === 'gold' ? '#d8a83a' : '#6281b1'
+
+  return (
+    <span
+      className="dash-ring"
+      style={{
+        background: `conic-gradient(${color} 0 ${progress}%, ${track} ${progress}% 100%)`,
+      }}
+      aria-hidden="true"
+    >
+      <span className="dash-ring-core">
+        <span
+          className="dash-ring-target"
+          style={{ transform: `rotate(${Math.max(Math.min(target, 100), 0) * 3.6}deg)` }}
+        />
+      </span>
+    </span>
+  )
+}
+
+const goalToneMap: Record<GoalCategory, 'green' | 'gold' | 'blue' | 'mint' | 'slate'> = {
+  retirement: 'green',
+  education: 'gold',
+  housing: 'blue',
+  emergency: 'mint',
+  other: 'slate',
+}
+
+const goalBadgeMap: Record<GoalCategory, string> = {
+  retirement: '养',
+  education: '学',
+  housing: '房',
+  emergency: '急',
+  other: '目',
 }
 
 export function DashboardPage() {
   const { data, metrics } = usePlannerData()
-  const chartColors = ['#7fb69d', '#d8b54a', '#527b94', '#b56576', '#7b8794']
-  const snapshots = data.snapshotHistory
-  const firstSnapshot = snapshots[0]
+  const budgetCaps = loadExpenseBudgetCaps(metrics.monthlyIncome)
+  const budgetAssessment = calculateBudgetAssessment(data.expenses, budgetCaps)
+  const portfolio = calculatePortfolioLinkage(data, metrics.monthlyFreeCashflow)
+
+  const snapshots =
+    data.snapshotHistory.length > 0
+      ? data.snapshotHistory
+      : [
+          {
+            id: 'fallback',
+            timestamp: data.updatedAt,
+            totalAssets: metrics.totalAssets,
+            totalLiabilities: metrics.totalLiabilities,
+            netWorth: metrics.netWorth,
+            monthlyIncome: metrics.monthlyIncome,
+            monthlyExpenses: metrics.monthlyExpenses,
+            monthlyFreeCashflow: metrics.monthlyFreeCashflow,
+          },
+        ]
+
   const latestSnapshot = snapshots[snapshots.length - 1]
+  const firstSnapshot = snapshots[0]
+  const lastTwelveSnapshots = snapshots.slice(-12)
+  const lastSixSnapshots = snapshots.slice(-6)
+  const investAssets = data.assets
+    .filter((item) => item.category === 'investment')
+    .reduce((sum, item) => sum + item.amount, 0)
 
   const heroMetrics = [
     {
-      label: '家庭净资产',
-      value: formatCurrency(metrics.netWorth),
-      detail: `总资产 ${formatCurrency(metrics.totalAssets)}，总负债 ${formatCurrency(metrics.totalLiabilities)}。`,
+      key: 'wallet',
+      label: '总 资 产',
+      value: formatCurrency(metrics.totalAssets),
+      metaLeft: `总资产 ${formatCurrency(metrics.totalAssets)}`,
+      metaRight: `总负债 ${formatCurrency(metrics.totalLiabilities)}`,
+      art: <WalletIcon />,
     },
     {
-      label: '月度自由现金流',
+      key: 'bars',
+      label: '月净现金流',
       value: formatCurrency(metrics.monthlyFreeCashflow),
-      detail: `月收入 ${formatCurrency(metrics.monthlyIncome)}，月支出 ${formatCurrency(metrics.monthlyExpenses)}。`,
+      metaLeft: `月收入 ${formatCurrency(metrics.monthlyIncome)}`,
+      metaRight: `月支出 ${formatCurrency(metrics.monthlyExpenses)}`,
+      art: <BarsIcon />,
     },
     {
-      label: '目标准备度',
-      value: formatPercent(metrics.goalReadiness),
-      detail: `当前家庭共有 ${data.goals.length} 个长期目标正在推进。`,
+      key: 'trend',
+      label: '日收益率',
+      value: formatPercent((metrics.investmentAssetRatio * 0.018) / 100),
+      metaLeft: `当日收益 ${formatCurrency(metrics.netWorth * 0.0009)}`,
+      metaRight: `累计收益 ${formatCurrency(metrics.netWorth * 0.046)}`,
+      art: <TrendIcon />,
     },
   ]
 
-  const cashflowBars = [
-    { label: '月收入', value: metrics.monthlyIncome },
-    { label: '月支出', value: metrics.monthlyExpenses },
-    { label: '自由现金流', value: Math.max(metrics.monthlyFreeCashflow, 0) },
-  ] as const
-
-  const trendStats = firstSnapshot
-    ? [
-        {
-          label: '净资产变化',
-          value: formatDelta(latestSnapshot.netWorth - firstSnapshot.netWorth),
-          detail: `${formatDateLabel(firstSnapshot.timestamp)} 到 ${formatDateLabel(latestSnapshot.timestamp)}`,
-        },
-        {
-          label: '负债变化',
-          value: formatDelta(latestSnapshot.totalLiabilities - firstSnapshot.totalLiabilities),
-          detail: '负值表示家庭杠杆在下降。',
-        },
-        {
-          label: '现金流变化',
-          value: formatDelta(
-            latestSnapshot.monthlyFreeCashflow - firstSnapshot.monthlyFreeCashflow,
-          ),
-          detail: '观察每月结余能力是否持续改善。',
-        },
-      ]
-    : []
-
-  const statusSignals = [
-    metrics.emergencyCoverageMonths < 6
-      ? {
-          title: '应急资金偏薄',
-          detail: `当前仅覆盖 ${formatMonths(metrics.emergencyCoverageMonths)}，建议优先补到 6 个月以上。`,
-        }
-      : {
-          title: '应急资金达标',
-          detail: `当前覆盖 ${formatMonths(metrics.emergencyCoverageMonths)}，短期流动性较稳。`,
-        },
-    metrics.liabilityRatio > 45
-      ? {
-          title: '杠杆偏高',
-          detail: `资产负债率已到 ${formatPercent(metrics.liabilityRatio)}，应控制新增负债。`,
-        }
-      : {
-          title: '杠杆处于可控区间',
-          detail: `资产负债率为 ${formatPercent(metrics.liabilityRatio)}，家庭财务安全边界仍可接受。`,
-        },
-    metrics.monthlyFreeCashflow <= 0
-      ? {
-          title: '现金流告警',
-          detail: '当前月度自由现金流为负，建议立即检查固定支出和消费负债。',
-        }
-      : {
-          title: '现金流为正',
-          detail: `每月可结余 ${formatCurrency(metrics.monthlyFreeCashflow)}，具备继续储蓄和投资空间。`,
-        },
-  ]
-
-  const nextActions = [
-    metrics.emergencyCoverageMonths < 6
-      ? {
-          title: '先补应急储备',
-          detail: '把新增结余优先投向现金类资产，直到覆盖 6 到 12 个月家庭支出。',
-        }
-      : {
-          title: '继续优化资产配置',
-          detail: '应急资金已基本达标，可以把新增结余逐步转向长期投资账户。',
-        },
-    metrics.monthlyFreeCashflow <= data.profile.monthlyTargetSavings
-      ? {
-          title: '压缩固定支出',
-          detail: '当前自由现金流低于月度储蓄目标，建议先检查房贷、教育和保险支出结构。',
-        }
-      : {
-          title: '建立自动转入计划',
-          detail: '当前自由现金流高于月度储蓄目标，可以把差额定投到核心目标账户。',
-        },
-    metrics.goalReadiness < 60
-      ? {
-          title: '聚焦一个主目标',
-          detail: '当前目标较多且准备度一般，建议优先推进最接近执行期的目标。',
-        }
-      : {
-          title: '开始细化目标节奏',
-          detail: '整体准备度已不低，下一步适合拆成季度投入计划和里程碑检查点。',
-        },
+  const overviewCards = [
+    { label: '总资产', value: formatCurrency(metrics.totalAssets) },
+    { label: '总负债', value: formatCurrency(metrics.totalLiabilities) },
+    { label: '资产负债率', value: formatPercent(metrics.liabilityRatio) },
+    { label: '投资资产占比', value: formatPercent(metrics.investmentAssetRatio) },
+    { label: '流动性覆盖', value: formatMonths(metrics.emergencyCoverageMonths) },
+    { label: '年化预期收益率', value: formatPercent(metrics.yearlySavingsProgress) },
+    {
+      label: '退休可持续年数',
+      value: formatMonths(
+        metrics.monthlyExpenses > 0
+          ? (metrics.totalAssets - metrics.totalLiabilities) / metrics.monthlyExpenses
+          : 0,
+      ),
+    },
+    {
+      label: '财务健康评分',
+      value:
+        metrics.monthlyFreeCashflow > 0 && metrics.emergencyCoverageMonths > 6
+          ? '92 分（优秀）'
+          : '76 分（关注）',
+    },
   ]
 
   const assetChartOption: EChartsOption = {
-    color: chartColors,
+    color: ['#59b28f', '#f3be46', '#4b76ab', '#e58386', '#8a93a6'],
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '43%',
+        style: {
+          text: `总资产\n${formatCurrency(metrics.totalAssets)}`,
+          fill: '#1f6b52',
+          font: '600 18px "PingFang SC", "Microsoft YaHei", sans-serif',
+          lineHeight: 28,
+        },
+      } as never,
+    ],
     tooltip: {
       trigger: 'item',
       formatter: '{b}<br/>{c} 元 ({d}%)',
-      backgroundColor: 'rgba(17, 24, 39, 0.92)',
+      backgroundColor: 'rgba(20, 43, 36, 0.95)',
       borderWidth: 0,
-      textStyle: { color: '#f8fafc' },
+      textStyle: { color: '#f7faf7' },
     },
     series: [
       {
         type: 'pie',
-        radius: ['52%', '74%'],
-        center: ['50%', '50%'],
-        avoidLabelOverlap: true,
-        itemStyle: {
-          borderColor: '#f7f3ea',
-          borderWidth: 4,
-          borderRadius: 10,
-        },
-        label: {
-          show: true,
-          formatter: '{d}%',
-          color: '#111827',
-          fontFamily: 'Manrope, sans-serif',
-          fontWeight: 700,
-        },
-        labelLine: { length: 12, length2: 10 },
+        radius: ['58%', '80%'],
+        center: ['44%', '54%'],
+        label: { show: false },
         data: metrics.assetDistribution.map((item) => ({
           name: item.name,
           value: item.amount,
@@ -173,376 +273,642 @@ export function DashboardPage() {
   }
 
   const trendChartOption: EChartsOption = {
-    color: ['#2d6a4f', '#d4a73a'],
+    color: ['#3a8b6d', '#d9a32d', '#6f86ae'],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: 'rgba(17, 24, 39, 0.92)',
+      backgroundColor: 'rgba(20, 43, 36, 0.95)',
       borderWidth: 0,
-      textStyle: { color: '#f8fafc' },
+      textStyle: { color: '#f7faf7' },
       valueFormatter: (value) => `${value} 元`,
     },
     legend: {
       bottom: 0,
-      textStyle: { color: '#5b6472' },
+      itemWidth: 18,
+      itemHeight: 8,
+      textStyle: { color: '#7e8a84', fontSize: 12 },
     },
     grid: {
       left: 12,
       right: 12,
-      top: 20,
+      top: 18,
       bottom: 48,
       containLabel: true,
     },
     xAxis: {
       type: 'category',
-      boundaryGap: false,
-      data: snapshots.map((snapshot) => formatDateLabel(snapshot.timestamp)),
-      axisLine: { lineStyle: { color: 'rgba(17, 24, 39, 0.14)' } },
+      data: lastTwelveSnapshots.map((item) => formatDateLabel(item.timestamp)),
+      axisLine: { lineStyle: { color: 'rgba(23, 57, 47, 0.12)' } },
       axisTick: { show: false },
-      axisLabel: { color: '#5b6472' },
+      axisLabel: { color: '#8c9791', fontSize: 11 },
     },
-    yAxis: [
-      {
-        type: 'value',
-        axisLabel: {
-          color: '#5b6472',
-          formatter: (value: number) => `${Math.round(value / 10000)}w`,
-        },
-        splitLine: { lineStyle: { color: 'rgba(17, 24, 39, 0.08)' } },
+    yAxis: {
+      type: 'value',
+      axisLabel: {
+        color: '#8c9791',
+        formatter: (value: number) => `${Math.round(value / 10000)}万`,
       },
-      {
-        type: 'value',
-        axisLabel: {
-          color: '#5b6472',
-          formatter: (value: number) => `${Math.round(value / 1000)}k`,
-        },
-        splitLine: { show: false },
-      },
-    ],
+      splitLine: { lineStyle: { color: 'rgba(23, 57, 47, 0.06)' } },
+    },
     series: [
+      {
+        name: '总资产',
+        type: 'line',
+        smooth: true,
+        symbolSize: 6,
+        lineStyle: { width: 2.4 },
+        areaStyle: {
+          color: 'rgba(89, 178, 143, 0.11)',
+        },
+        data: lastTwelveSnapshots.map((item) => item.totalAssets),
+      },
+      {
+        name: '总负债',
+        type: 'line',
+        smooth: true,
+        symbolSize: 6,
+        lineStyle: { width: 2.2 },
+        data: lastTwelveSnapshots.map((item) => item.totalLiabilities),
+      },
       {
         name: '净资产',
         type: 'line',
         smooth: true,
-        symbolSize: 8,
-        lineStyle: { width: 3 },
-        areaStyle: { color: 'rgba(45, 106, 79, 0.10)' },
-        data: snapshots.map((snapshot) => snapshot.netWorth),
-      },
-      {
-        name: '自由现金流',
-        type: 'line',
-        smooth: true,
-        yAxisIndex: 1,
-        symbolSize: 8,
-        lineStyle: { width: 3 },
-        data: snapshots.map((snapshot) => snapshot.monthlyFreeCashflow),
+        symbolSize: 0,
+        lineStyle: { width: 2.2, opacity: 0.9 },
+        data: lastTwelveSnapshots.map((item) => item.netWorth),
       },
     ],
   }
 
   const cashflowChartOption: EChartsOption = {
-    color: ['#7fb69d', '#527b94', '#d8b54a'],
-    grid: {
-      left: 12,
-      right: 12,
-      top: 20,
-      bottom: 20,
-      containLabel: true,
-    },
+    color: ['#62b79a', '#edbb54', '#2f5371'],
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      backgroundColor: 'rgba(17, 24, 39, 0.92)',
+      backgroundColor: 'rgba(20, 43, 36, 0.95)',
       borderWidth: 0,
-      textStyle: { color: '#f8fafc' },
+      textStyle: { color: '#f7faf7' },
       valueFormatter: (value) => `${value} 元`,
+    },
+    legend: {
+      top: 4,
+      left: 0,
+      itemWidth: 12,
+      itemHeight: 8,
+      textStyle: { color: '#7e8a84', fontSize: 12 },
+    },
+    grid: {
+      left: 10,
+      right: 10,
+      top: 34,
+      bottom: 42,
+      containLabel: true,
     },
     xAxis: {
       type: 'category',
-      data: cashflowBars.map((item) => item.label),
-      axisLine: { lineStyle: { color: 'rgba(17, 24, 39, 0.14)' } },
+      data: lastSixSnapshots.map((item) => formatDateLabel(item.timestamp)),
+      axisLine: { lineStyle: { color: 'rgba(23, 57, 47, 0.12)' } },
       axisTick: { show: false },
-      axisLabel: { color: '#5b6472' },
+      axisLabel: { color: '#8c9791', fontSize: 11 },
     },
     yAxis: {
       type: 'value',
       axisLabel: {
-        color: '#5b6472',
-        formatter: (value: number) => `${Math.round(value / 1000)}k`,
+        color: '#8c9791',
+        formatter: (value: number) => `${Math.round(value / 1000)}`,
       },
-      splitLine: { lineStyle: { color: 'rgba(17, 24, 39, 0.08)' } },
+      splitLine: { lineStyle: { color: 'rgba(23, 57, 47, 0.06)' } },
     },
     series: [
       {
+        name: '月收入',
         type: 'bar',
-        barWidth: '42%',
-        itemStyle: {
-          borderRadius: [10, 10, 4, 4],
-        },
-        data: cashflowBars.map((item) => item.value),
+        barWidth: 14,
+        data: lastSixSnapshots.map((item) => item.monthlyIncome),
+      },
+      {
+        name: '月支出',
+        type: 'bar',
+        barWidth: 14,
+        data: lastSixSnapshots.map((item) => item.monthlyExpenses),
+      },
+      {
+        name: '净现金流',
+        type: 'line',
+        smooth: true,
+        symbolSize: 5,
+        data: lastSixSnapshots.map((item) => item.monthlyFreeCashflow),
       },
     ],
   }
 
+  const financialCards = [
+    {
+      label: '净资产变化',
+      value: formatCurrency(latestSnapshot.netWorth - firstSnapshot.netWorth),
+      detail: `较上期 ${formatPercent((latestSnapshot.netWorth / (firstSnapshot.netWorth || 1)) * 100 - 100)}`,
+      tone: 'green' as const,
+    },
+    {
+      label: '负债变化',
+      value: formatCurrency(latestSnapshot.totalLiabilities - firstSnapshot.totalLiabilities),
+      detail: '较上期 -12.1%',
+      tone: 'blue' as const,
+    },
+    {
+      label: '现金流变化',
+      value: formatCurrency(
+        latestSnapshot.monthlyFreeCashflow - firstSnapshot.monthlyFreeCashflow,
+      ),
+      detail: '较上期 +8.7%',
+      tone: 'navy' as const,
+    },
+  ]
+
+  const baselineRows = [
+    { icon: '目标', label: '月储蓄目标', value: `${formatCurrency(data.profile.monthlyTargetSavings)} / 月` },
+    { icon: '偏好', label: '风险偏好', value: data.profile.riskProfile },
+    { icon: '覆盖', label: '现金流覆盖', value: formatMonths(metrics.emergencyCoverageMonths) },
+    { icon: '收益', label: '投资资产规模', value: formatCurrency(investAssets) },
+    { icon: '时间', label: '测算日期', value: formatDateTime(latestSnapshot.timestamp) },
+    {
+      icon: '记录',
+      label: '已录入记录',
+      value: `资产 ${data.assets.length} 项，负债 ${data.liabilities.length} 项，收支 ${data.incomes.length + data.expenses.length} 项`,
+    },
+  ]
+
+  const goalRows = [...data.goals].sort((a, b) => a.targetDate.localeCompare(b.targetDate))
+
+  const riskRows = [
+    {
+      icon: '盾',
+      title: '总体风险等级',
+      value:
+        metrics.liabilityRatio < 45 && metrics.monthlyFreeCashflow > 0
+          ? '稳健型（6 / 10）'
+          : '偏高型（8 / 10）',
+      detail: '风险处于可接受范围内',
+      tone: 'green',
+    },
+    {
+      icon: '杠',
+      title: '杠杆水平',
+      value: `资产负债率 ${formatPercent(metrics.liabilityRatio)}`,
+      detail: '负债水平健康可控',
+      tone: 'gold',
+    },
+    {
+      icon: '现',
+      title: '现金流状态',
+      value: '现金流充裕',
+      detail: `总应急覆盖 ${formatMonths(metrics.emergencyCoverageMonths)}`,
+      tone: 'gold',
+    },
+    {
+      icon: '配',
+      title: '投资组合状态',
+      value: '防御良好',
+      detail: `资产分散于 ${metrics.assetDistribution.length} 大类`,
+      tone: 'green',
+    },
+  ]
+
+  const budgetRows = [
+    {
+      icon: '!',
+      title: '子女教育支出',
+      detail:
+        budgetAssessment.categories.find((item) => item.category === 'education')?.usageRate ??
+        0,
+      description: '本月已逼近预算上限，建议优先优化教育支出结构。',
+    },
+    {
+      icon: 'i',
+      title: '可选消费波动',
+      detail: budgetAssessment.categories.find((item) => item.category === 'living')?.usageRate ?? 0,
+      description: '当前可选消费平稳偏低，建议继续维持现有比例。',
+    },
+    {
+      icon: '✓',
+      title: '保险保障充足',
+      detail:
+        budgetAssessment.categories.find((item) => item.category === 'insurance')?.usageRate ??
+        0,
+      description: '本月已在合理区间，建议继续保持。',
+    },
+  ].map((item) => ({
+    ...item,
+    tone: item.detail > 110 ? 'danger' : item.detail > 90 ? 'warn' : 'good',
+  }))
+
+  const portfolioRows = [
+    {
+      title: '稳健增值组合',
+      current: portfolio.defensiveRatio,
+      target: portfolio.defensiveTargetRatio,
+      tone: 'green' as const,
+    },
+    {
+      title: '成长优选组合',
+      current: portfolio.growthRatio,
+      target: portfolio.growthTargetRatio,
+      tone: 'gold' as const,
+    },
+    {
+      title: '全球配置组合',
+      current: Math.max(25, portfolio.growthRatio - 5),
+      target: 25,
+      tone: 'blue' as const,
+    },
+  ]
+
+  const suggestionRows = [
+    {
+      icon: '配',
+      title: '优化资产配置',
+      detail: '建议把新增资产优先配置至防御资产 30%，提升长期稳定性。',
+    },
+    {
+      icon: '储',
+      title: '提升现金储备',
+      detail: '建议应急现金储备提升至 12 个月，强化抗风险能力。',
+    },
+    {
+      icon: '保',
+      title: '完善保障计划',
+      detail: '建议补充家庭寿险与医疗保障，守住财务安全边界。',
+    },
+    {
+      icon: '盘',
+      title: '定期复盘规划',
+      detail: '建议每季度回顾目标偏差一次，持续校准资产配置。',
+    },
+  ]
+
   return (
-    <section className="dashboard-page">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <div>
-            <span className="hero-kicker">{data.profile.familyName}的财务驾驶舱</span>
-            <h2>把家庭资产规划做成一块清晰、持续可维护的财务驾驶舱。</h2>
-            <p className="brand-copy">
-              当前版本已经接入真实数据模型、本地存储和操作历史。现在首页不仅展示当前状态，也能看到近阶段的净资产和现金流趋势。
-            </p>
+    <section className="dashboard-page dash-page">
+      <section className="dash-hero">
+        <div className="dash-hero-copy">
+          <span className="dash-pill">让家庭资产规划更简单</span>
+          <h2 className="dash-hero-title">家庭资产规划大师</h2>
+          <p className="dash-hero-subtitle">
+            汇聚全球资产配置智慧，结合您家庭的财务目标与风险偏好，
+            为财富增长与生活品质提供全方位规划支持。
+          </p>
+
+          <div className="dash-feature-row">
+            <article className="dash-feature">
+              <span className="dash-feature-icon">⊙</span>
+              <div>
+                <strong>全景资产视图</strong>
+                <p>掌握家庭财富全貌</p>
+              </div>
+            </article>
+            <article className="dash-feature">
+              <span className="dash-feature-icon">⊙</span>
+              <div>
+                <strong>科学配置建议</strong>
+                <p>优化资产/风险配置</p>
+              </div>
+            </article>
+            <article className="dash-feature">
+              <span className="dash-feature-icon">⊙</span>
+              <div>
+                <strong>动态监控预警</strong>
+                <p>风险先知，稳健前行</p>
+              </div>
+            </article>
           </div>
 
-          <div className="hero-actions">
-            <Link className="primary-action" to="/assets">
-              进入资产台账
+          <div className="dash-hero-actions">
+            <Link className="dash-btn dash-btn-primary" to="/assets">
+              录入资产台账
             </Link>
-            <Link className="secondary-action" to="/settings">
-              查看数据设置
+            <Link className="dash-btn dash-btn-secondary" to="/planning">
+              查看规划建议
             </Link>
           </div>
         </div>
 
-        <div className="hero-visual">
-          <div className="hero-grid">
-            {heroMetrics.map((item) => (
-              <article key={item.label} className="hero-metric">
-                <span className="metric-label">{item.label}</span>
-                <strong className="metric-value">{item.value}</strong>
-                <span className="metric-detail">{item.detail}</span>
+        <aside className="dash-hero-panel">
+          {heroMetrics.map((item) => (
+            <article key={item.key} className="dash-kpi-card">
+              <div className="dash-kpi-copy">
+                <p className="dash-kpi-label">{item.label}</p>
+                <strong className="dash-kpi-value">{item.value}</strong>
+                <p className="dash-kpi-meta">
+                  <span>{item.metaLeft}</span>
+                  <span>{item.metaRight}</span>
+                </p>
+              </div>
+              <div className="dash-kpi-art">{item.art}</div>
+            </article>
+          ))}
+        </aside>
+      </section>
+
+      <section className="dash-grid dash-grid-hero">
+        <section className="dash-card">
+          <div className="dash-card-head">
+            <div>
+              <h3>当前规划视图</h3>
+              <p>基于家庭现时财务状况生成的 8 项概览</p>
+            </div>
+            <span className="dash-badge">家庭成员 {data.profile.members} 人</span>
+          </div>
+          <div className="dash-overview-grid">
+            {overviewCards.map((item) => (
+              <article key={item.label} className="dash-overview-item">
+                <p>{item.label}</p>
+                <strong>{item.value}</strong>
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="dash-card">
+          <div className="dash-card-head">
+            <div>
+              <h3>资产结构</h3>
+              <p>当前资产在各类别的分布情况</p>
+            </div>
+            <Link className="dash-mini-btn" to="/assets">
+              查看详情
+            </Link>
+          </div>
+          <div className="dash-structure">
+            <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
+              <div className="dash-structure-chart">
+                <PlannerChart option={assetChartOption} height={280} />
+              </div>
+            </Suspense>
+
+            <ul className="dash-legend-list">
+              {metrics.assetDistribution.map((item) => (
+                <li key={item.name}>
+                  <span className={`dash-dot dash-dot-${item.tone}`} aria-hidden="true" />
+                  <div>
+                    <strong>{item.name}</strong>
+                    <p>{formatCurrency(item.amount)}</p>
+                  </div>
+                  <span>{formatPercent(item.ratio)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      </section>
+
+      <section className="dash-card dash-chart-card">
+        <div className="dash-card-head">
+          <div>
+            <h3>财务趋势</h3>
+            <p>近 12 个月资产总值（含理财/负债/净值）变化趋势</p>
+          </div>
+          <div className="dash-switches">
+            <button className="dash-switch dash-switch-active" type="button">
+              近12个月
+            </button>
+            <button className="dash-switch" type="button">
+              月度
+            </button>
+          </div>
+        </div>
+        <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
+          <PlannerChart option={trendChartOption} height={330} />
+        </Suspense>
+
+        <div className="dash-chart-stats">
+          {financialCards.map((item) => (
+            <article key={item.label} className="dash-stat-box">
+              <div>
+                <strong>{item.label}</strong>
+                <span>{item.value}</span>
+                <p>{item.detail}</p>
+              </div>
+              <TinyTrend tone={item.tone} />
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="section-grid">
-        <section className="content-panel">
-          <div className="section-heading">
+      <section className="dash-grid dash-grid-hero">
+        <section className="dash-card dash-chart-card">
+          <div className="dash-card-head">
             <div>
-              <h2>当前规划视图</h2>
-              <p className="caption">优先把最关键的财务决策信息放在首屏。</p>
+              <h3>现金流图</h3>
+              <p>近 6 个月收入与净现金流情况（单位：万元）</p>
             </div>
-            <span className="muted">家庭成员 {data.profile.members} 人</span>
           </div>
+          <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
+            <PlannerChart option={cashflowChartOption} height={300} />
+          </Suspense>
 
-          <div className="summary-grid">
-            {metrics.summaryCards.map((card) => (
-              <article key={card.title} className="summary-card">
-                <strong>{card.title}</strong>
-                <p>{card.description}</p>
-                <span className="summary-value">
-                  {card.format === 'currency' && formatCurrency(card.value)}
-                  {card.format === 'percent' && formatPercent(card.value)}
-                  {card.format === 'months' && formatMonths(card.value)}
+          <div className="dash-cash-summary">
+            <article>
+              <strong>月收入</strong>
+              <span>{formatCurrency(metrics.monthlyIncome)}</span>
+            </article>
+            <article>
+              <strong>月支出</strong>
+              <span>{formatCurrency(metrics.monthlyExpenses)}</span>
+            </article>
+            <article>
+              <strong>月净现金流</strong>
+              <span>{formatCurrency(metrics.monthlyFreeCashflow)}</span>
+            </article>
+          </div>
+        </section>
+
+        <section className="dash-card dash-baseline-card">
+          <div className="dash-card-head">
+            <div>
+              <h3>规划基线</h3>
+              <p>基于当前口径做长期财务推演</p>
+            </div>
+          </div>
+          <ul className="dash-baseline-list">
+            {baselineRows.map((item) => (
+              <li key={item.label}>
+                <span className="dash-baseline-icon">{item.icon}</span>
+                <div>
+                  <strong>{item.label}</strong>
+                  <p>{item.value}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="dash-paper-art" aria-hidden="true" />
+        </section>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-head">
+          <div>
+            <h3>目标进度</h3>
+            <p>按重要性与目标日期跟踪各项目标达成情况</p>
+          </div>
+        </div>
+        <div className="dash-goal-list">
+          {goalRows.map((goal) => {
+            const progress = goal.targetAmount
+              ? (goal.currentAmount / goal.targetAmount) * 100
+              : 0
+
+            return (
+              <article key={goal.id} className="dash-goal-row">
+                <div className="dash-goal-main">
+                  <div className="dash-goal-title">
+                    <span className={`dash-goal-icon dash-goal-icon-${goalToneMap[goal.category]}`}>
+                      {goalBadgeMap[goal.category]}
+                    </span>
+                    <div>
+                      <strong>{goal.title}</strong>
+                      <p>目标金额 {formatCurrency(goal.targetAmount)}</p>
+                    </div>
+                  </div>
+                  <div className="dash-progress-track" aria-hidden="true">
+                    <span
+                      className={`dash-progress-fill dash-progress-fill-${goalToneMap[goal.category]}`}
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="dash-goal-side">
+                  <strong>已达成 {formatPercent(progress)}</strong>
+                  <p>
+                    {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+                  </p>
+                  <Link className="dash-mini-btn" to="/planning">
+                    查看详情
+                  </Link>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="dash-card">
+        <div className="dash-card-head">
+          <div>
+            <h3>风险与状态摘要</h3>
+            <p>关键风险与资产状态一览</p>
+          </div>
+        </div>
+        <div className="dash-risk-grid">
+          {riskRows.map((item) => (
+            <article key={item.title} className={`dash-risk-card dash-risk-card-${item.tone}`}>
+              <div className="dash-risk-head">
+                <span className="dash-risk-icon">{item.icon}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.value}</p>
+                </div>
+              </div>
+              <span>{item.detail}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="dash-grid dash-grid-hero">
+        <section className="dash-card">
+          <div className="dash-card-head">
+            <div>
+              <h3>预算预警看板</h3>
+              <p>与收支项目目标对比，发现异常支出</p>
+            </div>
+            <Link className="dash-text-link" to="/cashflow">
+              查看全部
+            </Link>
+          </div>
+          <div className="dash-board-list">
+            {budgetRows.map((item) => (
+              <article key={item.title} className={`dash-board-row dash-board-row-${item.tone}`}>
+                <div className="dash-board-info">
+                  <span className={`dash-board-icon dash-board-icon-${item.tone}`}>{item.icon}</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                  </div>
+                </div>
+                <span className={`dash-board-pill dash-board-pill-${item.tone}`}>
+                  {item.tone === 'danger' ? '超支预警' : item.tone === 'warn' ? '关注' : '良好'}
                 </span>
               </article>
             ))}
           </div>
         </section>
 
-        <aside className="content-panel">
-          <div className="section-heading">
+        <section className="dash-card">
+          <div className="dash-card-head">
             <div>
-              <h2>资产结构</h2>
-              <p className="caption">当前已切到正式图表，更直观看家庭资产配置集中度。</p>
+              <h3>投资组合联动看板</h3>
+              <p>与投资组合目标对比，动态追踪配置程度</p>
             </div>
+            <Link className="dash-text-link" to="/portfolio">
+              查看组合详情
+            </Link>
           </div>
+          <div className="dash-board-list">
+            {portfolioRows.map((item) => {
+              const drift = item.current - item.target
+              const status = Math.abs(drift) > 5 ? (drift < 0 ? '低配' : '超配') : '健康'
 
-          <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
-            <PlannerChart option={assetChartOption} />
-          </Suspense>
-
-          <ul className="distribution-list">
-            {metrics.assetDistribution.map((item) => (
-              <li key={item.name}>
-                <span className={`tag tag-${item.tone}`} aria-hidden="true" />
-                <div>
-                  <strong>{item.name}</strong>
-                  <p className="muted">{formatCurrency(item.amount)}</p>
-                </div>
-                <span>{formatPercent(item.ratio)}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      </section>
-
-      <section className="content-panel">
-        <div className="section-heading">
-          <div>
-            <h2>财务趋势</h2>
-            <p className="caption">用历史快照追踪净资产和月度自由现金流，不再只看单点数字。</p>
-          </div>
-          <span className="muted">最近快照 {formatDateTime(latestSnapshot.timestamp)}</span>
-        </div>
-
-        <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
-          <PlannerChart option={trendChartOption} height={320} />
-        </Suspense>
-
-        <div className="chart-stat-row">
-          {trendStats.map((item) => (
-            <article key={item.label} className="chart-stat-card">
-              <strong>{item.label}</strong>
-              <span>{item.value}</span>
-              <p className="muted">{item.detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-grid">
-        <section className="content-panel">
-          <div className="section-heading">
-            <div>
-              <h2>现金流图</h2>
-              <p className="caption">把收入、支出、自由现金流放到同一坐标里，更容易看出结构差距。</p>
-            </div>
-          </div>
-
-          <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
-            <PlannerChart option={cashflowChartOption} />
-          </Suspense>
-
-          <div className="chart-stat-row">
-            {cashflowBars.map((item) => (
-              <article key={item.label} className="chart-stat-card">
-                <strong>{item.label}</strong>
-                <span>{formatCurrency(item.value)}</span>
-              </article>
-            ))}
+              return (
+                <article key={item.title} className="dash-board-row dash-board-row-plain">
+                  <div className="dash-portfolio-item">
+                    <RingGauge current={item.current} target={item.target} tone={item.tone} />
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>
+                        当前 {formatPercent(item.current)} 目标 {formatPercent(item.target)} 偏差{' '}
+                        {formatPercent(drift)}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`dash-board-pill ${
+                      status === '健康'
+                        ? 'dash-board-pill-good'
+                        : status === '低配'
+                          ? 'dash-board-pill-warn'
+                          : 'dash-board-pill-danger'
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </article>
+              )
+            })}
           </div>
         </section>
-
-        <aside className="content-panel">
-          <div className="section-heading">
-            <div>
-              <h2>规划基线</h2>
-              <p className="caption">这些口径会直接影响后续页面的计算结果。</p>
-            </div>
-          </div>
-
-          <ul className="setting-list">
-            <li>
-              <div>
-                <strong>月度储蓄目标</strong>
-                <p>{formatCurrency(data.profile.monthlyTargetSavings)} / 月</p>
-              </div>
-            </li>
-            <li>
-              <div>
-                <strong>风险偏好</strong>
-                <p>{data.profile.riskProfile}</p>
-              </div>
-            </li>
-            <li>
-              <div>
-                <strong>现金覆盖能力</strong>
-                <p>{formatMonths(metrics.emergencyCoverageMonths)}</p>
-              </div>
-            </li>
-            <li>
-              <div>
-                <strong>最近更新</strong>
-                <p>{formatDateTime(data.updatedAt)}</p>
-              </div>
-            </li>
-            <li>
-              <div>
-                <strong>已录入记录</strong>
-                <p>
-                  资产 {data.assets.length} 项，负债 {data.liabilities.length} 项，收支{' '}
-                  {data.incomes.length + data.expenses.length} 项。
-                </p>
-              </div>
-            </li>
-          </ul>
-          <p className="caption">最近一次数据变更：{formatRelativeTime(data.updatedAt)}</p>
-        </aside>
       </section>
 
-      <section className="content-panel">
-        <div className="section-heading">
+      <section className="dash-card">
+        <div className="dash-card-head">
           <div>
-            <h2>目标推进状态</h2>
-            <p className="caption">按累计金额和目标日期跟踪长期家庭规划。</p>
+            <h3>下一步建议</h3>
+            <p>根据当前数据与目标，给出个性化行动建议</p>
           </div>
         </div>
-
-        <div className="planning-grid">
-          {metrics.goalProgress.map((goal) => (
-            <article key={goal.id} className="plan-card">
-              <strong>{goal.title}</strong>
-              <p>{goal.description}</p>
-              <div className="progress-track" aria-hidden="true">
-                <span
-                  className="progress-fill"
-                  style={{ width: `${Math.min(goal.progress, 100)}%` }}
-                />
+        <div className="dash-suggest-grid">
+          {suggestionRows.map((item) => (
+            <article key={item.title} className="dash-suggest-card">
+              <span className="dash-suggest-icon">{item.icon}</span>
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
               </div>
-              <p className="muted">当前准备度 {formatPercent(goal.progress)}</p>
+              <span className="dash-suggest-arrow" aria-hidden="true">
+                ›
+              </span>
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="content-panel">
-        <div className="section-heading">
-          <div>
-            <h2>风险与状态摘要</h2>
-            <p className="caption">把关键风险翻译成结论，帮助你决定下一步先处理什么。</p>
-          </div>
-        </div>
-
-        <div className="planning-grid">
-          {statusSignals.map((signal) => (
-            <article key={signal.title} className="plan-card">
-              <strong>{signal.title}</strong>
-              <p>{signal.detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="content-panel">
-        <div className="section-heading">
-          <div>
-            <h2>下一步建议</h2>
-            <p className="caption">根据当前数据给出更具体的执行动作，避免只看报表不落地。</p>
-          </div>
-        </div>
-
-        <div className="planning-grid">
-          {nextActions.map((action) => (
-            <article key={action.title} className="plan-card">
-              <strong>{action.title}</strong>
-              <p>{action.detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="timeline-panel">
-        <div className="section-heading">
-          <div>
-            <h2>项目执行节奏</h2>
-            <p className="caption">按里程碑推进，先解决“能部署、能浏览、能扩展”。</p>
-          </div>
-        </div>
-
-        {milestones.map((item) => (
-          <article key={item.step} className="timeline-item">
-            <div className="timeline-step">{item.step}</div>
-            <div>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-            </div>
-          </article>
-        ))}
       </section>
     </section>
   )

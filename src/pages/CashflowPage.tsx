@@ -1,9 +1,16 @@
-import { Suspense, lazy, useMemo, useState, type FormEvent } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState, type FormEvent } from 'react'
+import type { EChartsOption } from 'echarts'
 import { usePlannerData } from '../context/PlannerDataContext'
+import {
+  calculateBudgetAssessment,
+  createRecommendedBudgetCaps,
+  loadExpenseBudgetCaps,
+  saveExpenseBudgetCaps,
+  type ExpenseBudgetCaps,
+} from '../lib/budget'
 import { formatCurrency, formatPercent } from '../lib/format'
 import { expenseCategoryLabels, incomeCategoryLabels } from '../lib/labels'
 import type { ExpenseCategory, IncomeCategory } from '../types/planner'
-import type { EChartsOption } from 'echarts'
 
 type EntryType = 'income' | 'expense'
 type SortBy = 'amount-desc' | 'amount-asc' | 'name'
@@ -31,6 +38,7 @@ export function CashflowPage() {
   const {
     data,
     metrics,
+    recordAlert,
     addIncome,
     updateIncome,
     removeIncome,
@@ -48,6 +56,13 @@ export function CashflowPage() {
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<'all' | EntryType>('all')
   const [sortBy, setSortBy] = useState<SortBy>('amount-desc')
+  const [budgetCaps, setBudgetCaps] = useState<ExpenseBudgetCaps>(() =>
+    loadExpenseBudgetCaps(metrics.monthlyIncome),
+  )
+
+  useEffect(() => {
+    saveExpenseBudgetCaps(budgetCaps)
+  }, [budgetCaps])
 
   const entries = useMemo<CashflowEntry[]>(
     () => [
@@ -128,9 +143,9 @@ export function CashflowPage() {
       .sort((left, right) => right.value - left.value)
   }, [data.expenses])
 
-  const chartCategories = useMemo(
-    () => Array.from(new Set([...incomeByCategory, ...expenseByCategory].map((item) => item.name))),
-    [incomeByCategory, expenseByCategory],
+  const budgetAssessment = useMemo(
+    () => calculateBudgetAssessment(data.expenses, budgetCaps),
+    [budgetCaps, data.expenses],
   )
 
   const topExpense = expenseByCategory[0]
@@ -143,6 +158,98 @@ export function CashflowPage() {
       : topExpense
         ? `${topExpense.name} 当前约 ${formatCurrency(topExpense.value)}，可优先优化该项。`
         : '暂无支出数据，建议先录入固定支出后再分析结构。'
+
+  const budgetSignals = [
+    metrics.monthlyFreeCashflow < 0
+      ? {
+          title: '月度预算已透支',
+          detail: `当前每月超支约 ${formatCurrency(
+            freeCashflowGap,
+          )}，应先下调固定支出再新增长期投入。`,
+          tone: 'danger' as const,
+        }
+      : {
+          title: '现金流预算为正',
+          detail: `当前每月可结余 ${formatCurrency(
+            metrics.monthlyFreeCashflow,
+          )}，可用于目标投入或降杠杆。`,
+          tone: 'good' as const,
+        },
+    budgetAssessment.totalOverspend > 0
+      ? {
+          title: '分类预算已超额',
+          detail: `按你设置的类别上限计算，本月总超额约 ${formatCurrency(
+            budgetAssessment.totalOverspend,
+          )}。`,
+          tone: 'warn' as const,
+        }
+      : {
+          title: '分类预算未超额',
+          detail: '当前各类别支出未超过预算上限，可继续按现有节奏执行。',
+          tone: 'good' as const,
+        },
+    budgetAssessment.highestPressureCategory &&
+    budgetAssessment.highestPressureCategory.usageRate > 100
+      ? {
+          title: '单项支出压力最高',
+          detail: `${budgetAssessment.highestPressureCategory.label} 已用到 ${formatPercent(
+            budgetAssessment.highestPressureCategory.usageRate,
+          )}，建议优先处理该项。`,
+          tone: 'danger' as const,
+        }
+      : {
+          title: '单项支出压力可控',
+          detail: '目前没有类别明显越线，建议继续保持分类预算管理。',
+          tone: 'good' as const,
+        },
+    budgetAssessment.totalCap > 0
+      ? {
+          title: '预算使用率',
+          detail: `当前已使用 ${formatPercent(
+            (budgetAssessment.totalActual / budgetAssessment.totalCap) * 100,
+          )}。`,
+          tone:
+            budgetAssessment.totalActual / budgetAssessment.totalCap > 1
+              ? ('warn' as const)
+              : ('good' as const),
+        }
+      : {
+          title: '请先设置预算上限',
+          detail: '未设置有效预算上限时，系统无法给出分类预算预警。',
+          tone: 'warn' as const,
+        },
+  ]
+
+  const alertEvents = useMemo(
+    () => [
+      {
+        active: metrics.monthlyFreeCashflow < 0,
+        message: '预警：月度预算已透支，请优先修复现金流。',
+      },
+      {
+        active: budgetAssessment.totalOverspend > 0,
+        message: '预警：分类预算已超额，请检查预算上限与支出结构。',
+      },
+      {
+        active: (budgetAssessment.highestPressureCategory?.usageRate ?? 0) > 110,
+        message: `预警：${budgetAssessment.highestPressureCategory?.label ?? '某项支出'}压力过高，建议优先优化。`,
+      },
+    ],
+    [budgetAssessment.highestPressureCategory, budgetAssessment.totalOverspend, metrics.monthlyFreeCashflow],
+  )
+
+  useEffect(() => {
+    alertEvents.forEach((event) => {
+      if (event.active) {
+        recordAlert(event.message)
+      }
+    })
+  }, [alertEvents, recordAlert])
+
+  const chartCategories = useMemo(
+    () => Array.from(new Set([...incomeByCategory, ...expenseByCategory].map((item) => item.name))),
+    [incomeByCategory, expenseByCategory],
+  )
 
   const categoryChartOption: EChartsOption = {
     color: ['#7fb69d', '#527b94'],
@@ -204,6 +311,18 @@ export function CashflowPage() {
     setEntryType('income')
     setIncomeCategory('salary')
     setExpenseCategory('living')
+  }
+
+  function resetBudgetCaps() {
+    setBudgetCaps(createRecommendedBudgetCaps(metrics.monthlyIncome))
+  }
+
+  function updateBudgetCap(category: ExpenseCategory, value: string) {
+    const parsed = Number(value)
+    setBudgetCaps((current) => ({
+      ...current,
+      [category]: Number.isFinite(parsed) ? Math.max(parsed, 0) : 0,
+    }))
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -481,6 +600,50 @@ export function CashflowPage() {
       <section className="content-panel">
         <div className="section-heading">
           <div>
+            <h2>分类预算上限</h2>
+            <p className="caption">可按支出类别设置月度上限，系统会按上限自动生成预警。</p>
+          </div>
+          <button className="secondary-action" type="button" onClick={resetBudgetCaps}>
+            恢复推荐上限
+          </button>
+        </div>
+
+        <div className="allocation-grid">
+          {(Object.keys(budgetCaps) as ExpenseCategory[]).map((category) => {
+            const row = budgetAssessment.categories.find((item) => item.category === category)
+            const usageRate = row?.usageRate ?? 0
+            const signalClass =
+              usageRate > 110
+                ? 'signal-card-danger'
+                : usageRate > 90
+                  ? 'signal-card-warn'
+                  : 'signal-card-good'
+
+            return (
+              <article key={category} className={`setting-card ${signalClass}`}>
+                <strong>{expenseCategoryLabels[category]}</strong>
+                <label className="field">
+                  <span>预算上限</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={budgetCaps[category]}
+                    onChange={(event) => updateBudgetCap(category, event.target.value)}
+                  />
+                </label>
+                <p className="muted">
+                  当前支出 {formatCurrency(row?.actual ?? 0)}，使用率 {formatPercent(usageRate)}
+                </p>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="content-panel">
+        <div className="section-heading">
+          <div>
             <h2>分类对比图</h2>
             <p className="caption">按类别对比收入与支出结构，帮助定位最可优化的支出项。</p>
           </div>
@@ -488,6 +651,27 @@ export function CashflowPage() {
         <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
           <PlannerChart option={categoryChartOption} height={320} />
         </Suspense>
+      </section>
+
+      <section className="content-panel">
+        <div className="section-heading">
+          <div>
+            <h2>预算阈值提醒</h2>
+            <p className="caption">基于收支结构与分类上限自动生成预算预警。</p>
+          </div>
+        </div>
+
+        <div className="insight-grid">
+          {budgetSignals.map((signal) => (
+            <article
+              key={signal.title}
+              className={`signal-card signal-card-${signal.tone}`}
+            >
+              <strong>{signal.title}</strong>
+              <p>{signal.detail}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </section>
   )

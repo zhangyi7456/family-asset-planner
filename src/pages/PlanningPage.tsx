@@ -7,7 +7,14 @@ import {
   formatPercent,
 } from '../lib/format'
 import { goalCategoryLabels } from '../lib/labels'
-import type { GoalCategory } from '../types/planner'
+import type { GoalCategory, GoalPlan } from '../types/planner'
+
+interface ScenarioProfile {
+  id: 'A' | 'B'
+  label: string
+  monthlyContribution: string
+  annualReturnRate: string
+}
 
 function monthsUntil(date: string) {
   const now = new Date()
@@ -70,6 +77,43 @@ function estimateMonthsToTarget(
   return null
 }
 
+function projectScenario(goal: GoalPlan, profile: ScenarioProfile) {
+  const monthlyContribution = Math.max(Number(profile.monthlyContribution) || 0, 0)
+  const annualReturnRate = Math.max(Number(profile.annualReturnRate) || 0, 0)
+  const monthsLeft = monthsUntil(goal.targetDate)
+  const gap = Math.max(goal.targetAmount - goal.currentAmount, 0)
+  const projectedAtTarget = simulateGoalBalance(
+    goal.currentAmount,
+    monthlyContribution,
+    annualReturnRate,
+    monthsLeft,
+  )
+  const targetGap = Math.max(goal.targetAmount - projectedAtTarget, 0)
+  const projectedMonthsToTarget = estimateMonthsToTarget(
+    goal.currentAmount,
+    goal.targetAmount,
+    monthlyContribution,
+    annualReturnRate,
+  )
+
+  return {
+    profileId: profile.id,
+    profileLabel: profile.label,
+    monthsLeft,
+    gap,
+    monthlyContribution,
+    annualReturnRate,
+    projectedAtTarget,
+    targetGap,
+    projectedMonthsToTarget,
+    projectedCompletionDate:
+      projectedMonthsToTarget === null
+        ? null
+        : addMonths(new Date(), projectedMonthsToTarget).toISOString(),
+    isOnTrack: projectedAtTarget >= goal.targetAmount,
+  }
+}
+
 export function PlanningPage() {
   const { data, metrics, addGoal, updateGoal, removeGoal } = usePlannerData()
   const [title, setTitle] = useState('')
@@ -80,10 +124,23 @@ export function PlanningPage() {
   const [notes, setNotes] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [scenarioGoalId, setScenarioGoalId] = useState('')
-  const [scenarioContribution, setScenarioContribution] = useState(
-    String(Math.max(metrics.monthlyFreeCashflow, 0)),
-  )
-  const [scenarioReturnRate, setScenarioReturnRate] = useState('5')
+  const [scenarioProfiles, setScenarioProfiles] = useState<ScenarioProfile[]>(() => {
+    const baseContribution = Math.max(Math.round(metrics.monthlyFreeCashflow), 0)
+    return [
+      {
+        id: 'A',
+        label: '方案 A（稳健）',
+        monthlyContribution: String(baseContribution),
+        annualReturnRate: '4',
+      },
+      {
+        id: 'B',
+        label: '方案 B（进取）',
+        monthlyContribution: String(Math.round(baseContribution * 1.3)),
+        annualReturnRate: '7',
+      },
+    ]
+  })
 
   const goalHealth = useMemo(() => {
     return data.goals
@@ -91,7 +148,8 @@ export function PlanningPage() {
         const gap = Math.max(goal.targetAmount - goal.currentAmount, 0)
         const monthsLeft = monthsUntil(goal.targetDate)
         const requiredMonthly = gap === 0 ? 0 : monthsLeft > 0 ? gap / monthsLeft : gap
-        const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0
+        const progress =
+          goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0
 
         return {
           ...goal,
@@ -106,51 +164,36 @@ export function PlanningPage() {
 
   const selectedScenarioGoal =
     data.goals.find((goal) => goal.id === scenarioGoalId) ?? data.goals[0] ?? null
-  const scenarioContributionValue = Number(scenarioContribution)
-  const scenarioReturnRateValue = Number(scenarioReturnRate)
-  const scenarioProjection = useMemo(() => {
+
+  const scenarioResults = useMemo(() => {
     if (!selectedScenarioGoal) {
+      return []
+    }
+
+    return scenarioProfiles.map((profile) => projectScenario(selectedScenarioGoal, profile))
+  }, [scenarioProfiles, selectedScenarioGoal])
+
+  const preferredScenario = useMemo(() => {
+    if (scenarioResults.length === 0) {
       return null
     }
 
-    const monthlyContribution = Number.isFinite(scenarioContributionValue)
-      ? Math.max(scenarioContributionValue, 0)
-      : 0
-    const annualReturnRate = Number.isFinite(scenarioReturnRateValue)
-      ? Math.max(scenarioReturnRateValue, 0)
-      : 0
-    const monthsLeft = monthsUntil(selectedScenarioGoal.targetDate)
-    const gap = Math.max(
-      selectedScenarioGoal.targetAmount - selectedScenarioGoal.currentAmount,
-      0,
-    )
-    const projectedAtTarget = simulateGoalBalance(
-      selectedScenarioGoal.currentAmount,
-      monthlyContribution,
-      annualReturnRate,
-      monthsLeft,
-    )
-    const targetGap = Math.max(selectedScenarioGoal.targetAmount - projectedAtTarget, 0)
-    const projectedMonthsToTarget = estimateMonthsToTarget(
-      selectedScenarioGoal.currentAmount,
-      selectedScenarioGoal.targetAmount,
-      monthlyContribution,
-      annualReturnRate,
-    )
-
-    return {
-      monthsLeft,
-      gap,
-      projectedAtTarget,
-      targetGap,
-      projectedMonthsToTarget,
-      projectedCompletionDate:
-        projectedMonthsToTarget === null
-          ? null
-          : addMonths(new Date(), projectedMonthsToTarget).toISOString(),
-      isOnTrack: projectedAtTarget >= selectedScenarioGoal.targetAmount,
-    }
-  }, [scenarioContributionValue, scenarioReturnRateValue, selectedScenarioGoal])
+    return scenarioResults.reduce((best, current) => {
+      const bestScore = best.isOnTrack ? (best.targetGap <= 0 ? 0 : best.targetGap) : best.targetGap
+      const currentScore = current.isOnTrack
+        ? current.targetGap <= 0
+          ? 0
+          : current.targetGap
+        : current.targetGap
+      if (current.isOnTrack && !best.isOnTrack) {
+        return current
+      }
+      if (!current.isOnTrack && best.isOnTrack) {
+        return best
+      }
+      return currentScore < bestScore ? current : best
+    })
+  }, [scenarioResults])
 
   const planSummary = useMemo(() => {
     const activeGoals = goalHealth.filter((goal) => goal.gap > 0)
@@ -276,6 +319,23 @@ export function PlanningPage() {
     setCurrentAmount(String(target.currentAmount))
     setTargetDate(target.targetDate)
     setNotes(target.notes || '')
+  }
+
+  function updateScenarioValue(
+    profileId: ScenarioProfile['id'],
+    field: 'monthlyContribution' | 'annualReturnRate',
+    value: string,
+  ) {
+    setScenarioProfiles((current) =>
+      current.map((item) =>
+        item.id === profileId
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    )
   }
 
   return (
@@ -449,95 +509,100 @@ export function PlanningPage() {
 
           <div className="section-heading section-heading-nested">
             <div>
-              <h2>情景模拟</h2>
-              <p className="caption">输入月投入和年化收益假设，预估单个目标的完成时点。</p>
+              <h2>情景模拟 A/B</h2>
+              <p className="caption">同一目标下并排比较两套方案的完成时间与缺口。</p>
             </div>
           </div>
 
           {selectedScenarioGoal ? (
             <>
-              <div className="scenario-form">
-                <label className="field">
-                  <span>选择目标</span>
-                  <select
-                    value={selectedScenarioGoal.id}
-                    onChange={(event) => setScenarioGoalId(event.target.value)}
-                  >
-                    {data.goals.map((goal) => (
-                      <option key={goal.id} value={goal.id}>
-                        {goal.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <label className="field">
+                <span>选择模拟目标</span>
+                <select
+                  value={selectedScenarioGoal.id}
+                  onChange={(event) => setScenarioGoalId(event.target.value)}
+                >
+                  {data.goals.map((goal) => (
+                    <option key={goal.id} value={goal.id}>
+                      {goal.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-                <label className="field">
-                  <span>每月投入</span>
-                  <input
-                    inputMode="numeric"
-                    value={scenarioContribution}
-                    onChange={(event) => setScenarioContribution(event.target.value)}
-                    placeholder="例如：12000"
-                  />
-                </label>
+              <div className="scenario-compare-grid">
+                {scenarioProfiles.map((profile) => {
+                  const result = scenarioResults.find((item) => item.profileId === profile.id)
+                  if (!result) {
+                    return null
+                  }
 
-                <label className="field">
-                  <span>年化收益假设</span>
-                  <input
-                    inputMode="decimal"
-                    value={scenarioReturnRate}
-                    onChange={(event) => setScenarioReturnRate(event.target.value)}
-                    placeholder="例如：5"
-                  />
-                </label>
+                  return (
+                    <article
+                      key={profile.id}
+                      className={`signal-card ${
+                        result.isOnTrack ? 'signal-card-good' : 'signal-card-warn'
+                      }`}
+                    >
+                      <strong>{profile.label}</strong>
+                      <div className="scenario-form">
+                        <label className="field">
+                          <span>每月投入</span>
+                          <input
+                            inputMode="numeric"
+                            value={profile.monthlyContribution}
+                            onChange={(event) =>
+                              updateScenarioValue(
+                                profile.id,
+                                'monthlyContribution',
+                                event.target.value,
+                              )
+                            }
+                            placeholder="例如：12000"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>年化收益假设</span>
+                          <input
+                            inputMode="decimal"
+                            value={profile.annualReturnRate}
+                            onChange={(event) =>
+                              updateScenarioValue(
+                                profile.id,
+                                'annualReturnRate',
+                                event.target.value,
+                              )
+                            }
+                            placeholder="例如：6"
+                          />
+                        </label>
+                      </div>
+                      <span className="signal-value">
+                        {result.isOnTrack ? '可按期完成' : '存在缺口'}
+                      </span>
+                      <p className="muted">
+                        目标日预计 {formatCurrency(result.projectedAtTarget)}，缺口{' '}
+                        {formatCurrency(result.targetGap)}。
+                      </p>
+                      <p className="muted">
+                        预计完成时间：
+                        {result.projectedCompletionDate
+                          ? formatDateLabel(result.projectedCompletionDate)
+                          : '10 年内较难完成'}
+                      </p>
+                    </article>
+                  )
+                })}
               </div>
 
-              {scenarioProjection && (
-                <div className="insight-grid">
-                  <article className="signal-card">
-                    <strong>目标日预计资产</strong>
-                    <span className="signal-value">
-                      {formatCurrency(scenarioProjection.projectedAtTarget)}
-                    </span>
-                    <p className="muted">
-                      目标日 {formatDateLabel(selectedScenarioGoal.targetDate)}
-                    </p>
-                  </article>
-                  <article
-                    className={`signal-card ${
-                      scenarioProjection.isOnTrack ? 'signal-card-good' : 'signal-card-warn'
-                    }`}
-                  >
-                    <strong>按期达成判断</strong>
-                    <span className="signal-value">
-                      {scenarioProjection.isOnTrack ? '可按期完成' : '存在缺口'}
-                    </span>
-                    <p className="muted">
-                      {scenarioProjection.isOnTrack
-                        ? `在目标日前预计可覆盖 ${formatCurrency(
-                            scenarioProjection.gap,
-                          )} 的资金缺口。`
-                        : `到目标日仍差 ${formatCurrency(
-                            scenarioProjection.targetGap,
-                          )}。`}
-                    </p>
-                  </article>
-                  <article className="signal-card">
-                    <strong>预计完成时间</strong>
-                    <span className="signal-value">
-                      {scenarioProjection.projectedCompletionDate
-                        ? formatDateLabel(scenarioProjection.projectedCompletionDate)
-                        : '10 年内较难完成'}
-                    </span>
-                    <p className="muted">
-                      {scenarioProjection.projectedMonthsToTarget === null
-                        ? '在当前投入假设下，建议提高月投入或降低目标要求。'
-                        : `预计还需 ${formatMonths(
-                            scenarioProjection.projectedMonthsToTarget,
-                          )}。`}
-                    </p>
-                  </article>
-                </div>
+              {preferredScenario && (
+                <article className="signal-card signal-card-good">
+                  <strong>推荐方案</strong>
+                  <p>
+                    当前对比中更优的是 {preferredScenario.profileLabel}，目标缺口为{' '}
+                    {formatCurrency(preferredScenario.targetGap)}。
+                  </p>
+                </article>
               )}
             </>
           ) : (

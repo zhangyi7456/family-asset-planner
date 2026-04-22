@@ -246,6 +246,10 @@ function inferActivityAction(message: string): ActivityAction {
     return 'reset'
   }
 
+  if (message.startsWith('预警')) {
+    return 'alert'
+  }
+
   return 'create'
 }
 

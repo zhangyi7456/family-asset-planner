@@ -61,4 +61,5 @@ export const activityActionLabels: Record<ActivityAction, string> = {
   delete: '删除',
   import: '导入',
   reset: '重置',
+  alert: '预警',
 }

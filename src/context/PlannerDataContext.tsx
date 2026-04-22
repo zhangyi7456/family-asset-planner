@@ -83,6 +83,7 @@ interface PlannerDataContextValue {
   removeGoal: (id: string) => void
   importData: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   importValidatedData: (nextData: HouseholdData) => void
+  recordAlert: (message: string) => void
   exportData: () => void
   resetData: () => void
 }
@@ -108,6 +109,9 @@ function appendSnapshot(data: HouseholdData, timestamp: string) {
 function withActivity(
   data: HouseholdData,
   activity: Omit<ActivityLogEntry, 'id' | 'timestamp'>,
+  options?: {
+    withSnapshot?: boolean
+  },
 ): HouseholdData {
   const now = new Date().toISOString()
   const entry: ActivityLogEntry = {
@@ -120,6 +124,11 @@ function withActivity(
     ...data,
     updatedAt: now,
     activityLog: [entry, ...data.activityLog].slice(0, MAX_ACTIVITY_LOG),
+  }
+
+  const shouldAppendSnapshot = options?.withSnapshot ?? true
+  if (!shouldAppendSnapshot) {
+    return nextData
   }
 
   return {
@@ -458,6 +467,35 @@ export function PlannerDataProvider({ children }: PropsWithChildren) {
     )
   }
 
+  function recordAlert(message: string) {
+    setData((current) => {
+      const oneDayMs = 24 * 60 * 60 * 1000
+      const nowMs = Date.now()
+      const duplicated = current.activityLog.some((entry) => {
+        if (entry.action !== 'alert' || entry.message !== message) {
+          return false
+        }
+
+        const diff = nowMs - new Date(entry.timestamp).getTime()
+        return diff >= 0 && diff <= oneDayMs
+      })
+
+      if (duplicated) {
+        return current
+      }
+
+      return withActivity(
+        current,
+        {
+          area: 'system',
+          action: 'alert',
+          message,
+        },
+        { withSnapshot: false },
+      )
+    })
+  }
+
   function exportData() {
     const exportPayload = {
       version: PLANNER_DATA_VERSION,
@@ -505,6 +543,7 @@ export function PlannerDataProvider({ children }: PropsWithChildren) {
       removeGoal,
       importData,
       importValidatedData,
+      recordAlert,
       exportData,
       resetData,
     }),

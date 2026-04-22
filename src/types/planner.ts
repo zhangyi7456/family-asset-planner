@@ -26,7 +26,13 @@ export type ActivityArea =
   | 'goals'
   | 'system'
 
-export type ActivityAction = 'create' | 'update' | 'delete' | 'import' | 'reset'
+export type ActivityAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'import'
+  | 'reset'
+  | 'alert'
 
 export interface HouseholdProfile {
   familyName: string
