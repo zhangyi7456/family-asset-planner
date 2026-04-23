@@ -25,6 +25,7 @@ import type {
   GoalPlan,
   HouseholdData,
   IncomeRecord,
+  InvestmentPosition,
   Liability,
 } from '../types/planner'
 
@@ -63,6 +64,26 @@ interface NewGoalInput {
   notes?: string
 }
 
+interface UpdateProfileInput {
+  familyName: string
+  members: number
+  monthlyTargetSavings: number
+  riskProfile: string
+}
+
+interface NewInvestmentPositionInput {
+  code: string
+  name: string
+  assetType: InvestmentPosition['assetType']
+  costPrice: number
+  quantity: number
+  latestPrice: number
+  targetWeight: number
+  accumulatedDividend: number
+  totalFees: number
+  notes?: string
+}
+
 interface PlannerDataContextValue {
   data: HouseholdData
   metrics: ReturnType<typeof calculateDashboardMetrics>
@@ -81,6 +102,11 @@ interface PlannerDataContextValue {
   addGoal: (input: NewGoalInput) => void
   updateGoal: (id: string, input: NewGoalInput) => void
   removeGoal: (id: string) => void
+  addInvestmentPosition: (input: NewInvestmentPositionInput) => void
+  addInvestmentPositionsBatch: (inputs: NewInvestmentPositionInput[]) => void
+  updateInvestmentPosition: (id: string, input: NewInvestmentPositionInput) => void
+  removeInvestmentPosition: (id: string) => void
+  updateProfile: (input: UpdateProfileInput) => void
   importData: (event: ChangeEvent<HTMLInputElement>) => Promise<void>
   importValidatedData: (nextData: HouseholdData) => void
   recordAlert: (message: string) => void
@@ -424,6 +450,137 @@ export function PlannerDataProvider({ children }: PropsWithChildren) {
     )
   }
 
+  function addInvestmentPosition(input: NewInvestmentPositionInput) {
+    const position: InvestmentPosition = {
+      id: createRecordId('position'),
+      code: input.code.trim().toUpperCase(),
+      name: input.name.trim(),
+      assetType: input.assetType,
+      costPrice: input.costPrice,
+      quantity: input.quantity,
+      latestPrice: input.latestPrice,
+      targetWeight: input.targetWeight,
+      accumulatedDividend: input.accumulatedDividend,
+      totalFees: input.totalFees,
+      notes: input.notes?.trim(),
+    }
+
+    setData((current) =>
+      withActivity(
+        {
+          ...current,
+          investmentPositions: [...current.investmentPositions, position],
+        },
+        {
+          area: 'portfolio',
+          action: 'create',
+          message: `新增持仓：${position.code}`,
+        },
+      ),
+    )
+  }
+
+  function addInvestmentPositionsBatch(inputs: NewInvestmentPositionInput[]) {
+    const positions: InvestmentPosition[] = inputs.map((input) => ({
+      id: createRecordId('position'),
+      code: input.code.trim().toUpperCase(),
+      name: input.name.trim(),
+      assetType: input.assetType,
+      costPrice: input.costPrice,
+      quantity: input.quantity,
+      latestPrice: input.latestPrice,
+      targetWeight: input.targetWeight,
+      accumulatedDividend: input.accumulatedDividend,
+      totalFees: input.totalFees,
+      notes: input.notes?.trim(),
+    }))
+
+    setData((current) =>
+      withActivity(
+        {
+          ...current,
+          investmentPositions: [...current.investmentPositions, ...positions],
+        },
+        {
+          area: 'portfolio',
+          action: 'import',
+          message: `导入持仓：${positions.length} 条`,
+        },
+      ),
+    )
+  }
+
+  function updateInvestmentPosition(id: string, input: NewInvestmentPositionInput) {
+    setData((current) =>
+      withActivity(
+        {
+          ...current,
+          investmentPositions: current.investmentPositions.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  code: input.code.trim().toUpperCase(),
+                  name: input.name.trim(),
+                  assetType: input.assetType,
+                  costPrice: input.costPrice,
+                  quantity: input.quantity,
+                  latestPrice: input.latestPrice,
+                  targetWeight: input.targetWeight,
+                  accumulatedDividend: input.accumulatedDividend,
+                  totalFees: input.totalFees,
+                  notes: input.notes?.trim(),
+                }
+              : item,
+          ),
+        },
+        {
+          area: 'portfolio',
+          action: 'update',
+          message: `更新持仓：${input.code.trim().toUpperCase()}`,
+        },
+      ),
+    )
+  }
+
+  function removeInvestmentPosition(id: string) {
+    setData((current) => {
+      const target = current.investmentPositions.find((item) => item.id === id)
+
+      return withActivity(
+        {
+          ...current,
+          investmentPositions: current.investmentPositions.filter((item) => item.id !== id),
+        },
+        {
+          area: 'portfolio',
+          action: 'delete',
+          message: `删除持仓：${target?.code ?? '未知标的'}`,
+        },
+      )
+    })
+  }
+
+  function updateProfile(input: UpdateProfileInput) {
+    setData((current) =>
+      withActivity(
+        {
+          ...current,
+          profile: {
+            familyName: input.familyName.trim(),
+            members: input.members,
+            monthlyTargetSavings: input.monthlyTargetSavings,
+            riskProfile: input.riskProfile.trim(),
+          },
+        },
+        {
+          area: 'system',
+          action: 'update',
+          message: `更新家庭配置：${input.familyName.trim()}`,
+        },
+      ),
+    )
+  }
+
   async function importData(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) {
@@ -541,6 +698,11 @@ export function PlannerDataProvider({ children }: PropsWithChildren) {
       addGoal,
       updateGoal,
       removeGoal,
+      addInvestmentPosition,
+      addInvestmentPositionsBatch,
+      updateInvestmentPosition,
+      removeInvestmentPosition,
+      updateProfile,
       importData,
       importValidatedData,
       recordAlert,

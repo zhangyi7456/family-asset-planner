@@ -1,0 +1,23 @@
+{
+  "name": "家庭资产规划大师",
+  "short_name": "资产规划",
+  "description": "家庭资产、负债、收支、目标与投资组合的本地规划工具。",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f3eb",
+  "theme_color": "#1f6b52",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

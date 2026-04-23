@@ -6,6 +6,7 @@ import type {
   GoalPlan,
   HouseholdData,
   IncomeRecord,
+  InvestmentPosition,
   Liability,
 } from '../types/planner'
 
@@ -153,6 +154,48 @@ export const defaultGoals: GoalPlan[] = [
   },
 ]
 
+export const defaultInvestmentPositions: InvestmentPosition[] = [
+  {
+    id: 'position-159941',
+    code: '159941',
+    name: '纳指ETF',
+    assetType: 'etf',
+    costPrice: 1.268,
+    quantity: 180000,
+    latestPrice: 1.356,
+    targetWeight: 30,
+    accumulatedDividend: 4200,
+    totalFees: 680,
+    notes: '全球增长层核心持仓',
+  },
+  {
+    id: 'position-588000',
+    code: '588000',
+    name: '科创50ETF',
+    assetType: 'etf',
+    costPrice: 1.102,
+    quantity: 95000,
+    latestPrice: 1.184,
+    targetWeight: 15,
+    accumulatedDividend: 0,
+    totalFees: 360,
+    notes: '中国进攻层配置',
+  },
+  {
+    id: 'position-512890',
+    code: '512890',
+    name: '红利低波ETF',
+    assetType: 'etf',
+    costPrice: 1.012,
+    quantity: 120000,
+    latestPrice: 1.067,
+    targetWeight: 40,
+    accumulatedDividend: 3800,
+    totalFees: 420,
+    notes: '核心底盘层配置',
+  },
+]
+
 export const defaultActivityLog: ActivityLogEntry[] = [
   {
     id: 'activity-seed-01',
@@ -188,6 +231,13 @@ export const defaultActivityLog: ActivityLogEntry[] = [
     message: '更新收入：投资收益',
     area: 'cashflow',
     action: 'update',
+  },
+  {
+    id: 'activity-seed-06',
+    timestamp: '2026-04-22T21:30:00.000Z',
+    message: '新增持仓：159941',
+    area: 'portfolio',
+    action: 'create',
   },
 ]
 
@@ -266,6 +316,7 @@ export const defaultHouseholdData: HouseholdData = {
   incomes: defaultIncomes,
   expenses: defaultExpenses,
   goals: defaultGoals,
+  investmentPositions: defaultInvestmentPositions,
   activityLog: defaultActivityLog,
   snapshotHistory: defaultSnapshotHistory,
   updatedAt: '2026-04-22T21:00:00.000Z',

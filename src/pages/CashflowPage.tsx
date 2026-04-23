@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { EChartsOption } from 'echarts'
+import { useSearchParams } from 'react-router-dom'
 import { usePlannerData } from '../context/PlannerDataContext'
 import {
   calculateBudgetAssessment,
@@ -46,6 +47,9 @@ export function CashflowPage() {
     updateExpense,
     removeExpense,
   } = usePlannerData()
+  const [searchParams] = useSearchParams()
+  const initialFilterType = searchParams.get('type')
+  const initialSearch = searchParams.get('search') ?? ''
 
   const [entryType, setEntryType] = useState<EntryType>('income')
   const [name, setName] = useState('')
@@ -53,8 +57,12 @@ export function CashflowPage() {
   const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>('living')
   const [monthlyAmount, setMonthlyAmount] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState<'all' | EntryType>('all')
+  const [search, setSearch] = useState(initialSearch)
+  const [filterType, setFilterType] = useState<'all' | EntryType>(
+    initialFilterType === 'income' || initialFilterType === 'expense'
+      ? initialFilterType
+      : 'all',
+  )
   const [sortBy, setSortBy] = useState<SortBy>('amount-desc')
   const [budgetCaps, setBudgetCaps] = useState<ExpenseBudgetCaps>(() =>
     loadExpenseBudgetCaps(metrics.monthlyIncome),
@@ -382,7 +390,7 @@ export function CashflowPage() {
   }
 
   return (
-    <section className="cashflow-page">
+    <section className="cashflow-page ops-page">
       <section className="section-grid">
         <section className="content-panel">
           <div className="section-heading">
@@ -470,7 +478,7 @@ export function CashflowPage() {
           </form>
         </section>
 
-        <aside className="content-panel">
+        <aside className="content-panel ops-stack">
           <div className="section-heading">
             <div>
               <h2>现金流摘要</h2>
@@ -478,7 +486,7 @@ export function CashflowPage() {
             </div>
           </div>
 
-          <div className="summary-grid">
+          <div className="summary-grid ops-summary-grid">
             <article className="summary-card">
               <strong>月收入</strong>
               <p>当前所有收入项按月汇总。</p>
@@ -515,6 +523,18 @@ export function CashflowPage() {
                 {metrics.monthlyFreeCashflow < 0 ? '现金流告警' : '结构可优化'}
               </span>
             </article>
+          </div>
+
+          <div className="insight-grid ops-insight-grid">
+            {budgetSignals.slice(0, 2).map((signal) => (
+              <article
+                key={signal.title}
+                className={`signal-card signal-card-${signal.tone}`}
+              >
+                <strong>{signal.title}</strong>
+                <p>{signal.detail}</p>
+              </article>
+            ))}
           </div>
         </aside>
       </section>

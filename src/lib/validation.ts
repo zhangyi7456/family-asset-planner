@@ -4,6 +4,7 @@ import type {
   ActivityArea,
   FinancialSnapshot,
   HouseholdData,
+  InvestmentPositionType,
 } from '../types/planner'
 import { createFinancialSnapshot } from './financials'
 
@@ -32,6 +33,66 @@ const goalCategories = new Set([
   'emergency',
   'other',
 ])
+const investmentPositionTypes = new Set<InvestmentPositionType>([
+  'etf',
+  'stock',
+  'fund',
+  'bond',
+  'other',
+])
+
+function validateInvestmentPosition(item: unknown, index: number) {
+  if (!isRecord(item)) {
+    return `第 ${index + 1} 条持仓记录格式错误。`
+  }
+
+  if (
+    !isString(item.id) ||
+    !isString(item.code) ||
+    !isNumber(item.costPrice) ||
+    !isNumber(item.quantity) ||
+    !isNumber(item.latestPrice)
+  ) {
+    return `第 ${index + 1} 条持仓记录字段不合法。`
+  }
+
+  if (
+    item.name !== undefined &&
+    !isString(item.name)
+  ) {
+    return `第 ${index + 1} 条持仓记录名称字段不合法。`
+  }
+
+  if (
+    item.assetType !== undefined &&
+    !investmentPositionTypes.has(String(item.assetType) as InvestmentPositionType)
+  ) {
+    return `第 ${index + 1} 条持仓记录类型字段不合法。`
+  }
+
+  if (
+    item.targetWeight !== undefined &&
+    !isNumber(item.targetWeight)
+  ) {
+    return `第 ${index + 1} 条持仓记录目标仓位字段不合法。`
+  }
+
+  if (
+    item.accumulatedDividend !== undefined &&
+    !isNumber(item.accumulatedDividend)
+  ) {
+    return `第 ${index + 1} 条持仓记录分红字段不合法。`
+  }
+
+  if (
+    item.totalFees !== undefined &&
+    !isNumber(item.totalFees)
+  ) {
+    return `第 ${index + 1} 条持仓记录手续费字段不合法。`
+  }
+
+  return null
+}
 
 type ValidationResult =
   | { ok: true; data: HouseholdData }
@@ -222,6 +283,10 @@ function inferActivityArea(message: string): ActivityArea {
     return 'goals'
   }
 
+  if (message.includes('持仓') || message.includes('组合')) {
+    return 'portfolio'
+  }
+
   return 'system'
 }
 
@@ -333,6 +398,18 @@ export function validateHouseholdData(input: unknown): ValidationResult {
     return { ok: false, message: goalsError }
   }
 
+  const investmentPositionsInput = Array.isArray(data.investmentPositions)
+    ? data.investmentPositions
+    : []
+  const positionsError = validateArrayField(
+    investmentPositionsInput,
+    '持仓记录',
+    validateInvestmentPosition,
+  )
+  if (positionsError) {
+    return { ok: false, message: positionsError }
+  }
+
   if (!isString(data.updatedAt)) {
     return { ok: false, message: '缺少更新时间字段。' }
   }
@@ -366,6 +443,27 @@ export function validateHouseholdData(input: unknown): ValidationResult {
     incomes: data.incomes as HouseholdData['incomes'],
     expenses: data.expenses as HouseholdData['expenses'],
     goals: data.goals as HouseholdData['goals'],
+    investmentPositions: investmentPositionsInput.map((item, index) => {
+      const record = item as Record<string, unknown>
+
+      return {
+        id: String(record.id ?? `position-${index}`),
+        code: String(record.code ?? '').trim().toUpperCase(),
+        name: isString(record.name) ? record.name : String(record.code ?? '').trim().toUpperCase(),
+        assetType: investmentPositionTypes.has(String(record.assetType) as InvestmentPositionType)
+          ? (String(record.assetType) as InvestmentPositionType)
+          : 'other',
+        costPrice: Number(record.costPrice ?? 0),
+        quantity: Number(record.quantity ?? 0),
+        latestPrice: Number(record.latestPrice ?? 0),
+        targetWeight: isNumber(record.targetWeight) ? record.targetWeight : 0,
+        accumulatedDividend: isNumber(record.accumulatedDividend)
+          ? record.accumulatedDividend
+          : 0,
+        totalFees: isNumber(record.totalFees) ? record.totalFees : 0,
+        notes: isString(record.notes) ? record.notes : undefined,
+      }
+    }) as HouseholdData['investmentPositions'],
   }
 
   const normalizedActivityLog = normalizeActivityLog(activityLogInput)

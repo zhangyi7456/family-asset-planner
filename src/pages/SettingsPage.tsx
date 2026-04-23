@@ -1,19 +1,33 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { usePlannerData } from '../context/PlannerDataContext'
-import { formatCurrency, formatDateTime, formatRelativeTime } from '../lib/format'
+import { formatCurrency, formatDateTime, formatPercent, formatRelativeTime } from '../lib/format'
 import { activityActionLabels, activityAreaLabels } from '../lib/labels'
 import { PLANNER_DATA_VERSION } from '../lib/storage'
 import { validateHouseholdData } from '../lib/validation'
 import type { HouseholdData } from '../types/planner'
 
 export function SettingsPage() {
-  const { data, exportData, importValidatedData, resetData } = usePlannerData()
+  const { data, metrics, updateProfile, exportData, importValidatedData, resetData } =
+    usePlannerData()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [keyword, setKeyword] = useState('')
   const [areaFilter, setAreaFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
   const [importPreview, setImportPreview] = useState<HouseholdData | null>(null)
   const [importFileName, setImportFileName] = useState('')
+  const [familyName, setFamilyName] = useState(data.profile.familyName)
+  const [members, setMembers] = useState(String(data.profile.members))
+  const [monthlyTargetSavings, setMonthlyTargetSavings] = useState(
+    String(data.profile.monthlyTargetSavings),
+  )
+  const [riskProfile, setRiskProfile] = useState(data.profile.riskProfile)
+
+  useEffect(() => {
+    setFamilyName(data.profile.familyName)
+    setMembers(String(data.profile.members))
+    setMonthlyTargetSavings(String(data.profile.monthlyTargetSavings))
+    setRiskProfile(data.profile.riskProfile)
+  }, [data.profile])
 
   const filteredActivities = useMemo(() => {
     const query = keyword.trim().toLowerCase()
@@ -99,13 +113,158 @@ export function SettingsPage() {
     closeImportPreview()
   }
 
+  function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const parsedMembers = Number(members)
+    const parsedTargetSavings = Number(monthlyTargetSavings)
+    if (
+      !familyName.trim() ||
+      !riskProfile.trim() ||
+      !Number.isFinite(parsedMembers) ||
+      !Number.isFinite(parsedTargetSavings) ||
+      parsedMembers <= 0 ||
+      parsedTargetSavings < 0
+    ) {
+      return
+    }
+
+    updateProfile({
+      familyName,
+      members: Math.max(1, Math.round(parsedMembers)),
+      monthlyTargetSavings: parsedTargetSavings,
+      riskProfile,
+    })
+  }
+
   return (
-    <section className="settings-page">
+    <section className="settings-page ops-page">
       <section className="section-grid">
         <section className="content-panel">
           <div className="section-heading">
             <div>
-              <h2>数据设置与部署边界</h2>
+              <h2>家庭基础配置</h2>
+              <p className="caption">这里修改的参数会实时联动总览页、目标规划、预算分析与组合建议。</p>
+            </div>
+          </div>
+
+          <form className="data-form" onSubmit={handleProfileSubmit}>
+            <label className="field">
+              <span>家庭名称</span>
+              <input
+                value={familyName}
+                onChange={(event) => setFamilyName(event.target.value)}
+                placeholder="例如：张家家庭资产规划"
+              />
+            </label>
+
+            <label className="field">
+              <span>家庭成员数</span>
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={members}
+                onChange={(event) => setMembers(event.target.value)}
+                placeholder="例如：3"
+              />
+            </label>
+
+            <label className="field">
+              <span>月度目标储蓄</span>
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={monthlyTargetSavings}
+                onChange={(event) => setMonthlyTargetSavings(event.target.value)}
+                placeholder="例如：24000"
+              />
+            </label>
+
+            <label className="field">
+              <span>风险偏好</span>
+              <select
+                value={riskProfile}
+                onChange={(event) => setRiskProfile(event.target.value)}
+              >
+                <option value="保守型">保守型</option>
+                <option value="稳健型">稳健型</option>
+                <option value="平衡型">平衡型</option>
+                <option value="成长型">成长型</option>
+                <option value="进取型">进取型</option>
+              </select>
+            </label>
+
+            <div className="form-actions field-wide">
+              <button className="primary-action" type="submit">
+                保存基础配置
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside className="content-panel ops-stack">
+          <div className="section-heading">
+            <div>
+              <h2>联动概览</h2>
+              <p className="caption">用于确认当前配置已经影响全站计算结果。</p>
+            </div>
+          </div>
+
+          <div className="summary-grid ops-summary-grid">
+            <article className="summary-card">
+              <strong>家庭净资产</strong>
+              <p>来自资产与负债页的联动结果。</p>
+              <span className="summary-value">{formatCurrency(metrics.netWorth)}</span>
+            </article>
+            <article className="summary-card">
+              <strong>月净现金流</strong>
+              <p>来自收支页的联动结果。</p>
+              <span className="summary-value">
+                {formatCurrency(metrics.monthlyFreeCashflow)}
+              </span>
+            </article>
+            <article className="summary-card">
+              <strong>目标准备度</strong>
+              <p>来自目标页的完成进度聚合。</p>
+              <span className="summary-value">{formatPercent(metrics.goalReadiness)}</span>
+            </article>
+            <article className="summary-card">
+              <strong>投资资产占比</strong>
+              <p>来自资产分类与组合联动。</p>
+              <span className="summary-value">
+                {formatPercent(metrics.investmentAssetRatio)}
+              </span>
+            </article>
+          </div>
+
+          <article className="setting-card ops-list-card">
+            <strong>配置说明</strong>
+            <p className="caption">这里是全站计算的入口，修改后会影响总览、预算、目标和投资建议。</p>
+            <ul className="setting-list">
+              <li>
+                <div>
+                  <strong>月度目标储蓄</strong>
+                  <p>用于校验家庭现金流是否足以支撑计划推进。</p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <strong>风险偏好</strong>
+                  <p>会影响组合建议和后续资产配置语气。</p>
+                </div>
+              </li>
+            </ul>
+          </article>
+        </aside>
+      </section>
+
+      <section className="section-grid">
+        <section className="content-panel">
+          <div className="section-heading">
+            <div>
+              <h2>数据设置与备份</h2>
               <p className="caption">GitHub Pages 版本优先保证静态可运行和数据可备份。</p>
             </div>
           </div>

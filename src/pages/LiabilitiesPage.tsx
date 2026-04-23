@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePlannerData } from '../context/PlannerDataContext'
 import { formatCurrency, formatPercent } from '../lib/format'
 import { liabilityCategoryLabels } from '../lib/labels'
@@ -7,15 +8,23 @@ import type { LiabilityCategory } from '../types/planner'
 export function LiabilitiesPage() {
   const { data, addLiability, updateLiability, removeLiability, metrics } =
     usePlannerData()
+  const [searchParams] = useSearchParams()
+  const initialCategory = searchParams.get('category')
+  const initialSort = searchParams.get('sort')
+  const initialSearch = searchParams.get('search') ?? ''
   const [name, setName] = useState('')
   const [category, setCategory] = useState<LiabilityCategory>('mortgage')
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [filterCategory, setFilterCategory] = useState<'all' | LiabilityCategory>('all')
+  const [search, setSearch] = useState(initialSearch)
+  const [filterCategory, setFilterCategory] = useState<'all' | LiabilityCategory>(
+    initialCategory && ['mortgage', 'consumer', 'auto', 'other'].includes(initialCategory)
+      ? (initialCategory as LiabilityCategory)
+      : 'all',
+  )
   const [sortBy, setSortBy] = useState<'amount-desc' | 'amount-asc' | 'name'>(
-    'amount-desc',
+    initialSort === 'amount-asc' || initialSort === 'name' ? initialSort : 'amount-desc',
   )
 
   const visibleLiabilities = useMemo(() => {
@@ -95,7 +104,7 @@ export function LiabilitiesPage() {
   }
 
   return (
-    <section className="liabilities-page">
+    <section className="liabilities-page ops-page">
       <section className="section-grid">
         <section className="content-panel">
           <div className="section-heading">
@@ -163,7 +172,7 @@ export function LiabilitiesPage() {
           </form>
         </section>
 
-        <aside className="content-panel">
+        <aside className="content-panel ops-stack">
           <div className="section-heading">
             <div>
               <h2>当前负债摘要</h2>
@@ -171,7 +180,7 @@ export function LiabilitiesPage() {
             </div>
           </div>
 
-          <div className="summary-grid">
+          <div className="summary-grid ops-summary-grid">
             <article className="summary-card">
               <strong>总负债</strong>
               <p>所有负债记录已纳入家庭净资产与资产负债率计算。</p>
@@ -187,6 +196,38 @@ export function LiabilitiesPage() {
               </span>
             </article>
           </div>
+
+          <article className="setting-card ops-list-card">
+            <strong>负债类别分布</strong>
+            <p className="caption">先看压力集中在哪一类，再决定优先偿还顺序。</p>
+            <ul className="distribution-list">
+              {Object.entries(liabilityCategoryLabels).map(([value, label]) => {
+                const amount = data.liabilities
+                  .filter((item) => item.category === value)
+                  .reduce((sum, item) => sum + item.amount, 0)
+
+                if (amount <= 0) {
+                  return null
+                }
+
+                return (
+                  <li key={value}>
+                    <span className="tag tag-other" />
+                    <div>
+                      <strong>{label}</strong>
+                      <p className="muted">{formatCurrency(amount)}</p>
+                    </div>
+                    <span className="muted">
+                      {metrics.totalLiabilities > 0
+                        ? ((amount / metrics.totalLiabilities) * 100).toFixed(1)
+                        : '0.0'}
+                      %
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </article>
         </aside>
       </section>
 

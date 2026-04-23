@@ -5,6 +5,7 @@ import type {
   ExpenseCategory,
   GoalCategory,
   IncomeCategory,
+  InvestmentPositionType,
   LiabilityCategory,
 } from '../types/planner'
 
@@ -47,11 +48,20 @@ export const goalCategoryLabels: Record<GoalCategory, string> = {
   other: '其他目标',
 }
 
+export const investmentPositionTypeLabels: Record<InvestmentPositionType, string> = {
+  etf: 'ETF',
+  stock: '股票',
+  fund: '基金',
+  bond: '债券',
+  other: '其他',
+}
+
 export const activityAreaLabels: Record<ActivityArea, string> = {
   assets: '资产台账',
   liabilities: '负债管理',
   cashflow: '收支记录',
   goals: '目标规划',
+  portfolio: '投资组合',
   system: '系统操作',
 }
 

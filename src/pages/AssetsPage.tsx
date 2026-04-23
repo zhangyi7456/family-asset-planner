@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePlannerData } from '../context/PlannerDataContext'
 import { formatCurrency } from '../lib/format'
 import { assetCategoryLabels } from '../lib/labels'
@@ -6,13 +7,21 @@ import type { AssetCategory } from '../types/planner'
 
 export function AssetsPage() {
   const { data, addAsset, updateAsset, removeAsset, metrics } = usePlannerData()
+  const [searchParams] = useSearchParams()
+  const initialCategory = searchParams.get('category')
+  const initialSearch = searchParams.get('search') ?? ''
   const [name, setName] = useState('')
   const [category, setCategory] = useState<AssetCategory>('cash')
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [filterCategory, setFilterCategory] = useState<'all' | AssetCategory>('all')
+  const [search, setSearch] = useState(initialSearch)
+  const [filterCategory, setFilterCategory] = useState<'all' | AssetCategory>(
+    initialCategory &&
+      ['cash', 'investment', 'housing', 'insurance', 'other'].includes(initialCategory)
+      ? (initialCategory as AssetCategory)
+      : 'all',
+  )
   const [sortBy, setSortBy] = useState<'amount-desc' | 'amount-asc' | 'name'>(
     'amount-desc',
   )
@@ -94,7 +103,7 @@ export function AssetsPage() {
   }
 
   return (
-    <section className="assets-page">
+    <section className="assets-page ops-page">
       <section className="section-grid">
         <section className="content-panel">
           <div className="section-heading">
@@ -161,7 +170,7 @@ export function AssetsPage() {
           </form>
         </section>
 
-        <aside className="content-panel">
+        <aside className="content-panel ops-stack">
           <div className="section-heading">
             <div>
               <h2>当前资产摘要</h2>
@@ -169,7 +178,7 @@ export function AssetsPage() {
             </div>
           </div>
 
-          <div className="summary-grid">
+          <div className="summary-grid ops-summary-grid">
             <article className="summary-card">
               <strong>资产条目数</strong>
               <p>当前已经纳入 {data.assets.length} 项资产记录。</p>
@@ -181,6 +190,23 @@ export function AssetsPage() {
               <span className="summary-value">{formatCurrency(metrics.totalAssets)}</span>
             </article>
           </div>
+
+          <article className="setting-card ops-list-card">
+            <strong>资产结构分布</strong>
+            <p className="caption">按已录入台账自动归类，用于核对各资产桶是否平衡。</p>
+            <ul className="distribution-list">
+              {metrics.assetDistribution.map((item) => (
+                <li key={item.name}>
+                  <span className={`tag tag-${item.tone}`} />
+                  <div>
+                    <strong>{item.name}</strong>
+                    <p className="muted">{formatCurrency(item.amount)}</p>
+                  </div>
+                  <span className="muted">{item.ratio.toFixed(1)}%</span>
+                </li>
+              ))}
+            </ul>
+          </article>
         </aside>
       </section>
 

@@ -328,6 +328,8 @@
   display: block;
   margin-bottom: 10px;
   color: var(--text-strong);
+  font-size: 0.94rem;
+  line-height: 1.35;
 }
 
 .summary-value {
@@ -336,6 +338,22 @@
   font-family: var(--font-heading);
   font-size: 1.9rem;
   color: var(--text-strong);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.summary-card p,
+.asset-card p,
+.plan-card p,
+.setting-card p,
+.signal-card p,
+.chart-stat-card p,
+.activity-group p,
+.timeline-panel p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.58;
+  color: #8f9c96;
 }
 
 .distribution-list,
@@ -361,6 +379,25 @@
 .milestone-list li:last-child,
 .setting-list li:last-child {
   border-bottom: 0;
+}
+
+.distribution-list strong,
+.milestone-list strong,
+.setting-list strong,
+.activity-group strong,
+.snapshot-metrics strong {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.distribution-list p,
+.milestone-list p,
+.setting-list p,
+.snapshot-metrics span,
+.activity-item p {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #95a19b;
 }
 
 .tag {
@@ -444,6 +481,8 @@
 
 .muted {
   color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 .data-form {
@@ -570,6 +609,7 @@
   color: var(--text-strong);
   font-family: var(--font-heading);
   font-size: 1.2rem;
+  line-height: 1.1;
 }
 
 .chart-stat-card p {
@@ -610,6 +650,8 @@
   display: block;
   margin-bottom: 10px;
   color: var(--text-strong);
+  font-size: 0.92rem;
+  line-height: 1.35;
 }
 
 .signal-card p {
@@ -623,6 +665,7 @@
   font-family: var(--font-heading);
   font-size: 1.45rem;
   color: var(--text-strong);
+  line-height: 1.1;
 }
 
 .signal-card-good {
@@ -737,6 +780,352 @@
   border-radius: 14px;
   border: 1px dashed rgba(15, 23, 42, 0.2);
   background: rgba(255, 255, 255, 0.6);
+}
+
+.portfolio-page {
+  display: grid;
+  gap: 24px;
+}
+
+.ops-page {
+  display: grid;
+  gap: 18px;
+}
+
+.ops-page .content-panel {
+  padding: 20px;
+  border-radius: 18px;
+}
+
+.ops-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.ops-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ops-insight-grid {
+  grid-template-columns: 1fr;
+}
+
+.ops-list-card {
+  display: grid;
+  gap: 12px;
+}
+
+.diagnosis-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.diagnosis-score-card {
+  grid-column: span 2;
+}
+
+.diagnosis-dimension-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ops-page .asset-grid,
+.ops-page .planning-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ops-page .asset-card,
+.ops-page .plan-card {
+  padding: 18px;
+  border-radius: 14px;
+}
+
+.ops-page .summary-card .summary-value,
+.ops-page .asset-card .summary-value,
+.ops-page .plan-card .summary-value {
+  font-size: 1.55rem;
+}
+
+.dash-page,
+.portfolio-page {
+  gap: 18px;
+}
+
+.dash-page .content-panel,
+.portfolio-page .content-panel {
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(21, 54, 42, 0.07);
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 10px 26px rgba(23, 57, 47, 0.05);
+}
+
+.dash-page .section-heading,
+.portfolio-page .section-heading {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dash-page .section-heading h2,
+.portfolio-page .section-heading h2 {
+  font-size: clamp(1.08rem, 1.3vw, 1.22rem);
+  letter-spacing: -0.02em;
+}
+
+.dash-page .caption,
+.portfolio-page .caption {
+  font-size: 0.8rem;
+  color: #93a09a;
+}
+
+.portfolio-page .primary-action,
+.portfolio-page .secondary-action,
+.dash-btn {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+}
+
+.portfolio-page .summary-card,
+.portfolio-page .setting-card,
+.portfolio-page .signal-card,
+.portfolio-page .chart-stat-card,
+.portfolio-page .portfolio-entry-form,
+.dash-card,
+.dash-kpi-card,
+.dash-stat-box,
+.dash-cash-summary article,
+.dash-baseline-card,
+.dash-goal-row,
+.dash-risk-card,
+.dash-board-row,
+.dash-suggest-card {
+  border-radius: 14px;
+}
+
+.portfolio-page .field input,
+.portfolio-page .field select,
+.portfolio-page .field textarea {
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.portfolio-summary-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.portfolio-summary-card {
+  grid-column: span 4;
+}
+
+.portfolio-summary-card-primary {
+  grid-column: span 6;
+}
+
+.portfolio-summary-card .summary-value {
+  font-size: 1.55rem;
+}
+
+.portfolio-summary-card-primary .summary-value {
+  font-size: 2rem;
+}
+
+.portfolio-toolbar {
+  margin-bottom: 18px;
+}
+
+.portfolio-entry-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.portfolio-entry-form {
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.portfolio-entry-aside {
+  display: grid;
+  gap: 14px;
+}
+
+.portfolio-draft-card {
+  display: grid;
+  gap: 12px;
+}
+
+.portfolio-draft-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.portfolio-toolbar-caption {
+  margin-top: 10px;
+}
+
+.portfolio-actions-row {
+  margin-bottom: 6px;
+}
+
+.portfolio-quick-grid,
+.portfolio-execution-grid {
+  grid-template-columns: 1fr;
+}
+
+.portfolio-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.portfolio-filter-chip {
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
+.portfolio-filter-chip-active {
+  background: rgba(46, 102, 82, 0.12);
+  border-color: rgba(46, 102, 82, 0.24);
+  color: var(--accent-strong);
+}
+
+.portfolio-sort-button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
+.portfolio-sort-button-active {
+  color: var(--accent-strong);
+}
+
+.portfolio-preview-actions {
+  justify-content: flex-start;
+}
+
+.portfolio-table-shell {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.portfolio-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  color: var(--text-strong);
+}
+
+.portfolio-table thead th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5b6472;
+  background: rgba(245, 248, 246, 0.9);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.portfolio-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 0.92rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.portfolio-code-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.portfolio-code-cell strong {
+  color: var(--text-strong);
+}
+
+.portfolio-code-cell span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.portfolio-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.portfolio-table tbody tr:hover {
+  background: rgba(247, 250, 248, 0.92);
+}
+
+.portfolio-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portfolio-rebalance-list {
+  display: grid;
+  gap: 14px;
+}
+
+.portfolio-rebalance-item {
+  display: grid;
+  gap: 12px;
+}
+
+.portfolio-rebalance-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portfolio-rebalance-top p {
+  margin: 6px 0 0;
+}
+
+.portfolio-chart-stats {
+  margin-top: 16px;
+}
+
+.portfolio-preview-card {
+  min-height: 100%;
+}
+
+.pill-portfolio-good {
+  background: rgba(96, 176, 132, 0.16);
+  color: #1d7a51;
+}
+
+.pill-portfolio-danger {
+  background: rgba(220, 117, 117, 0.14);
+  color: #b14545;
+}
+
+.portfolio-profit {
+  color: #1d7a51;
+  font-weight: 700;
+}
+
+.portfolio-loss {
+  color: #be4b4b;
+  font-weight: 700;
 }
 
 .allocation-grid {
@@ -879,6 +1268,26 @@
   }
 
   .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-summary-grid,
+  .diagnosis-summary-grid,
+  .diagnosis-dimension-grid,
+  .ops-page .asset-grid,
+  .ops-page .planning-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-entry-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-draft-stats {
     grid-template-columns: 1fr;
   }
 
@@ -2734,8 +3143,7 @@
 .dash-card {
   position: relative;
   overflow: hidden;
-  padding: 18px;
-  border-radius: 18px;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(21, 54, 42, 0.06);
   box-shadow: 0 10px 28px rgba(23, 57, 47, 0.04);
@@ -2752,7 +3160,7 @@
 .dash-card-head h3 {
   margin: 0;
   color: #263b34;
-  font-size: 1.15rem;
+  font-size: 1.08rem;
   letter-spacing: -0.02em;
 }
 
@@ -2943,7 +3351,7 @@
   display: block;
   margin-top: 6px;
   color: #1e3d33;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   letter-spacing: -0.02em;
 }
 
@@ -2983,7 +3391,7 @@
   display: block;
   margin-top: 10px;
   color: #1e3d33;
-  font-size: 1.32rem;
+  font-size: 1.24rem;
 }
 
 .dash-baseline-card {
@@ -3492,5 +3900,37 @@
   .dash-board-row,
   .dash-suggest-card {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, auto) minmax(0, 1fr);
+  }
+
+  .topbar-actions .primary-action-compact {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .section-heading .form-actions,
+  .form-actions {
+    width: 100%;
+  }
+
+  .form-actions .primary-action,
+  .form-actions .secondary-action,
+  .form-actions .primary-action-compact {
+    width: 100%;
+  }
+
+  .diagnosis-score-card {
+    grid-column: span 1;
   }
 }

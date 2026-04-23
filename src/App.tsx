@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { Link, NavLink, Route, Routes } from 'react-router-dom'
 import { calculateBudgetAssessment, loadExpenseBudgetCaps } from './lib/budget'
 import { usePlannerData } from './context/PlannerDataContext'
 import './App.css'
@@ -39,6 +39,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 )
+const DiagnosisPage = lazy(() =>
+  import('./pages/DiagnosisPage').then((module) => ({
+    default: module.DiagnosisPage,
+  })),
+)
 
 const navItems = [
   { to: '/', label: '总览' },
@@ -47,6 +52,7 @@ const navItems = [
   { to: '/cashflow', label: '收支管理' },
   { to: '/planning', label: '目标计划' },
   { to: '/portfolio', label: '投资组合' },
+  { to: '/settings', label: '数据配置' },
 ]
 
 function BrandIcon() {
@@ -142,9 +148,9 @@ function App() {
           <button className="icon-action" type="button" aria-label="账户">
             <UserIcon />
           </button>
-          <button className="primary-action primary-action-compact" type="button">
+          <Link className="primary-action primary-action-compact" to="/diagnosis">
             开始诊断
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -158,6 +164,7 @@ function App() {
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/diagnosis" element={<DiagnosisPage />} />
           </Routes>
         </Suspense>
       </main>

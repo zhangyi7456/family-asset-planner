@@ -19,11 +19,14 @@ export type GoalCategory =
   | 'emergency'
   | 'other'
 
+export type InvestmentPositionType = 'etf' | 'stock' | 'fund' | 'bond' | 'other'
+
 export type ActivityArea =
   | 'assets'
   | 'liabilities'
   | 'cashflow'
   | 'goals'
+  | 'portfolio'
   | 'system'
 
 export type ActivityAction =
@@ -81,6 +84,20 @@ export interface GoalPlan {
   notes?: string
 }
 
+export interface InvestmentPosition {
+  id: string
+  code: string
+  name: string
+  assetType: InvestmentPositionType
+  costPrice: number
+  quantity: number
+  latestPrice: number
+  targetWeight: number
+  accumulatedDividend: number
+  totalFees: number
+  notes?: string
+}
+
 export interface ActivityLogEntry {
   id: string
   timestamp: string
@@ -107,6 +124,7 @@ export interface HouseholdData {
   incomes: IncomeRecord[]
   expenses: ExpenseRecord[]
   goals: GoalPlan[]
+  investmentPositions: InvestmentPosition[]
   activityLog: ActivityLogEntry[]
   snapshotHistory: FinancialSnapshot[]
   updatedAt: string

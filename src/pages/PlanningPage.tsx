@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePlannerData } from '../context/PlannerDataContext'
 import {
   formatCurrency,
@@ -116,6 +117,7 @@ function projectScenario(goal: GoalPlan, profile: ScenarioProfile) {
 
 export function PlanningPage() {
   const { data, metrics, addGoal, updateGoal, removeGoal } = usePlannerData()
+  const [searchParams] = useSearchParams()
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<GoalCategory>('housing')
   const [targetAmount, setTargetAmount] = useState('')
@@ -262,6 +264,25 @@ export function PlanningPage() {
     return insights
   }, [metrics.monthlyFreeCashflow, planSummary])
 
+  useEffect(() => {
+    const goalId = searchParams.get('goal')
+    const focus = searchParams.get('focus')
+
+    if (goalId && data.goals.some((goal) => goal.id === goalId)) {
+      setScenarioGoalId(goalId)
+      return
+    }
+
+    if (focus === 'urgent' && planSummary.urgentGoal) {
+      setScenarioGoalId(planSummary.urgentGoal.id)
+      return
+    }
+
+    if (!scenarioGoalId && data.goals[0]) {
+      setScenarioGoalId(data.goals[0].id)
+    }
+  }, [data.goals, planSummary.urgentGoal, scenarioGoalId, searchParams])
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -339,7 +360,7 @@ export function PlanningPage() {
   }
 
   return (
-    <section className="planning-page">
+    <section className="planning-page ops-page">
       <section className="section-grid">
         <section className="content-panel">
           <div className="section-heading">
@@ -424,55 +445,9 @@ export function PlanningPage() {
             </div>
           </form>
 
-          <div className="planning-grid">
-            {goalHealth.map((goal) => (
-              <article key={goal.id} className="plan-card">
-                <strong>{goal.title}</strong>
-                <p>{goal.notes || '暂无备注'}</p>
-                <p className="muted">
-                  类别：{goalCategoryLabels[goal.category]} | 目标日期：
-                  {formatDateLabel(goal.targetDate)}
-                </p>
-                <p className="muted">目标金额：{formatCurrency(goal.targetAmount)}</p>
-                <div className="progress-track" aria-hidden="true">
-                  <span
-                    className="progress-fill"
-                    style={{ width: `${Math.min(goal.progress, 100)}%` }}
-                  />
-                </div>
-                <p className="muted">
-                  当前已准备 {formatCurrency(goal.currentAmount)}，完成度{' '}
-                  {formatPercent(goal.progress)}
-                </p>
-                <p className="muted">
-                  资金缺口 {formatCurrency(goal.gap)}
-                  {goal.monthsLeft > 0 &&
-                    `，距离目标约 ${formatMonths(goal.monthsLeft)}，建议月投入 ${formatCurrency(
-                      goal.requiredMonthly,
-                    )}`}
-                </p>
-                <div className="card-actions">
-                  <button
-                    className="inline-action"
-                    type="button"
-                    onClick={() => startEdit(goal.id)}
-                  >
-                    编辑
-                  </button>
-                  <button
-                    className="inline-action danger-action"
-                    type="button"
-                    onClick={() => removeGoal(goal.id)}
-                  >
-                    删除
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
         </section>
 
-        <aside className="content-panel">
+        <aside className="content-panel ops-stack">
           <div className="section-heading">
             <div>
               <h2>总体准备度</h2>
@@ -480,7 +455,7 @@ export function PlanningPage() {
             </div>
           </div>
 
-          <div className="summary-grid">
+          <div className="summary-grid ops-summary-grid">
             <article className="summary-card">
               <strong>整体目标准备度</strong>
               <p>当前目标资金池正在逐步形成。</p>
@@ -609,6 +584,65 @@ export function PlanningPage() {
             <p className="empty-state">请先新增至少一个目标，再使用情景模拟。</p>
           )}
         </aside>
+      </section>
+
+      <section className="content-panel">
+        <div className="section-heading">
+          <div>
+            <h2>目标清单</h2>
+            <p className="caption">先看完成度和资金缺口，再决定下一步把月结余分配到哪个目标。</p>
+          </div>
+        </div>
+
+        <div className="planning-grid">
+          {goalHealth.map((goal) => (
+            <article key={goal.id} className="plan-card">
+              <strong>{goal.title}</strong>
+              <p>{goal.notes || '暂无备注'}</p>
+              <p className="muted">
+                类别：{goalCategoryLabels[goal.category]} | 目标日期：
+                {formatDateLabel(goal.targetDate)}
+              </p>
+              <p className="muted">目标金额：{formatCurrency(goal.targetAmount)}</p>
+              <div className="progress-track" aria-hidden="true">
+                <span
+                  className="progress-fill"
+                  style={{ width: `${Math.min(goal.progress, 100)}%` }}
+                />
+              </div>
+              <p className="muted">
+                当前已准备 {formatCurrency(goal.currentAmount)}，完成度{' '}
+                {formatPercent(goal.progress)}
+              </p>
+              <p className="muted">
+                资金缺口 {formatCurrency(goal.gap)}
+                {goal.monthsLeft > 0 &&
+                  `，距离目标约 ${formatMonths(goal.monthsLeft)}，建议月投入 ${formatCurrency(
+                    goal.requiredMonthly,
+                  )}`}
+              </p>
+              <div className="card-actions">
+                <button
+                  className="inline-action"
+                  type="button"
+                  onClick={() => startEdit(goal.id)}
+                >
+                  编辑
+                </button>
+                <button
+                  className="inline-action danger-action"
+                  type="button"
+                  onClick={() => removeGoal(goal.id)}
+                >
+                  删除
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+        {goalHealth.length === 0 ? (
+          <p className="empty-state">当前还没有目标，请先新增一条目标计划。</p>
+        ) : null}
       </section>
 
       <section className="content-panel">
