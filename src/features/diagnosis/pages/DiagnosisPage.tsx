@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TaskCompletionBanner } from '../../../shared/ui/task/TaskCompletionBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { createDiagnosisReport } from '../../../entities/planner/lib/diagnosis'
 import { formatCurrency } from '../../../entities/planner/lib/format'
@@ -85,20 +87,20 @@ export function DiagnosisPage() {
 
       <section className="section-grid">
         <section className="content-panel">
-          <div className="section-heading">
-            <div>
-              <h2>家庭资产诊断</h2>
-              <p className="caption">基于当前资产、负债、收支、目标和投资组合数据自动生成综合诊断。</p>
-            </div>
-            <div className="form-actions">
-              <button className="secondary-action" type="button" onClick={exportDiagnosis}>
-                导出诊断报告
-              </button>
-              <Link className="secondary-action" to="/">
-                返回总览
-              </Link>
-            </div>
-          </div>
+          <PanelHeader
+            title="家庭资产诊断"
+            description="基于当前资产、负债、收支、目标和投资组合数据自动生成综合诊断。"
+            actions={
+              <>
+                <button className="secondary-action" type="button" onClick={exportDiagnosis}>
+                  导出诊断报告
+                </button>
+                <Link className="secondary-action" to="/">
+                  返回总览
+                </Link>
+              </>
+            }
+          />
 
           <div className="summary-grid diagnosis-summary-grid">
             <article className="summary-card diagnosis-score-card">
@@ -128,12 +130,7 @@ export function DiagnosisPage() {
         </section>
 
         <aside className="content-panel ops-stack">
-          <div className="section-heading">
-            <div>
-              <h2>最高优先级问题</h2>
-              <p className="caption">先处理最影响安全边界和执行效率的问题。</p>
-            </div>
-          </div>
+          <PanelHeader title="最高优先级问题" description="先处理最影响安全边界和执行效率的问题。" />
 
           {topSignal ? (
             <article
@@ -187,12 +184,10 @@ export function DiagnosisPage() {
       </section>
 
       <section className="content-panel">
-        <div className="section-heading">
-          <div>
-            <h2>五项维度评分</h2>
-            <p className="caption">把家庭财务拆成可解释的五个维度，而不是只给一个总分。</p>
-          </div>
-        </div>
+        <PanelHeader
+          title="五项维度评分"
+          description="把家庭财务拆成可解释的五个维度，而不是只给一个总分。"
+        />
 
         <div className="insight-grid diagnosis-dimension-grid">
           {report.dimensions.map((item) => (
@@ -208,85 +203,70 @@ export function DiagnosisPage() {
 
       <section className="section-grid">
         <section className="content-panel">
-          <div className="section-heading">
-            <div>
-              <h2>风险信号</h2>
-              <p className="caption">按优先级排序，帮助你先做对家庭财务最有影响的动作。</p>
-            </div>
-          </div>
+          <PanelHeader title="风险信号" description="按优先级排序，帮助你先做对家庭财务最有影响的动作。" />
 
-          <div className="activity-groups">
+          <div className="task-action-stack">
             {report.signals.map((signal) => (
-              <article key={signal.title} className="activity-group">
-                <div className="activity-group-header">
-                  <strong>{signal.title}</strong>
-                  <span className="pill">
-                    {completedTaskSet.has(signal.title) ? '已处理' : priorityLabel(signal.priority)}
-                  </span>
-                </div>
-                <p>{signal.detail}</p>
-                {signal.href && !completedTaskSet.has(signal.title) ? (
-                  <div className="card-actions">
-                    <Link
-                      className="inline-action"
-                      to={buildTaskHref(signal.href, signal.title)}
-                    >
+              <TaskActionCard
+                key={signal.title}
+                icon={signal.priority === 'high' ? '高' : signal.priority === 'medium' ? '中' : '低'}
+                title={signal.title}
+                detail={signal.detail}
+                meta={completedTaskSet.has(signal.title) ? '本轮已完成处理。' : '风险信号'}
+                badge={completedTaskSet.has(signal.title) ? '已处理' : priorityLabel(signal.priority)}
+                tone={
+                  completedTaskSet.has(signal.title)
+                    ? 'good'
+                    : signal.priority === 'high'
+                      ? 'danger'
+                      : signal.priority === 'medium'
+                        ? 'warn'
+                        : 'neutral'
+                }
+                completed={completedTaskSet.has(signal.title)}
+                action={
+                  signal.href && !completedTaskSet.has(signal.title) ? (
+                    <Link className="inline-action" to={buildTaskHref(signal.href, signal.title)}>
                       去处理
                     </Link>
-                  </div>
-                ) : completedTaskSet.has(signal.title) ? (
-                  <div className="card-actions">
-                    <span className="caption">本轮已完成处理。</span>
-                  </div>
-                ) : null}
-              </article>
+                  ) : null
+                }
+              />
             ))}
           </div>
         </section>
 
         <aside className="content-panel">
-          <div className="section-heading">
-            <div>
-              <h2>优先动作</h2>
-              <p className="caption">按修复顺序执行，而不是同时推进所有事项。</p>
-            </div>
-          </div>
+          <PanelHeader title="优先动作" description="按修复顺序执行，而不是同时推进所有事项。" />
 
-          <div className="portfolio-rebalance-list">
+          <div className="task-action-stack">
             {report.actions.map((action, index) => (
-              <article
+              <TaskActionCard
                 key={action.title}
-                className={`setting-card portfolio-rebalance-item ${
-                  completedTaskSet.has(action.title) ? 'portfolio-rebalance-item-done' : ''
-                }`}
-              >
-                <div className="portfolio-rebalance-top">
-                  <div>
-                    <strong>
-                      {index + 1}. {action.title}
-                    </strong>
-                    <p className="caption">{action.owner}</p>
-                  </div>
-                  <span className="pill">
-                    {completedTaskSet.has(action.title) ? '已处理' : priorityLabel(action.priority)}
-                  </span>
-                </div>
-                <p>{action.detail}</p>
-                {completedTaskSet.has(action.title) ? (
-                  <div className="card-actions">
-                    <span className="caption">本轮已完成处理，可继续下一项。</span>
-                  </div>
-                ) : (
-                  <div className="card-actions">
-                    <Link
-                      className="inline-action"
-                      to={buildTaskHref(action.href, action.title)}
-                    >
+                icon={String(index + 1)}
+                title={action.title}
+                detail={action.detail}
+                meta={completedTaskSet.has(action.title) ? '本轮已完成处理，可继续下一项。' : action.owner}
+                badge={completedTaskSet.has(action.title) ? '已处理' : priorityLabel(action.priority)}
+                tone={
+                  completedTaskSet.has(action.title)
+                    ? 'good'
+                    : action.priority === 'high'
+                      ? 'danger'
+                      : action.priority === 'medium'
+                        ? 'warn'
+                        : 'neutral'
+                }
+                completed={completedTaskSet.has(action.title)}
+                compact
+                action={
+                  completedTaskSet.has(action.title) ? null : (
+                    <Link className="inline-action" to={buildTaskHref(action.href, action.title)}>
                       打开对应模块
                     </Link>
-                  </div>
-                )}
-              </article>
+                  )
+                }
+              />
             ))}
           </div>
         </aside>

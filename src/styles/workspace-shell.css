@@ -1,0 +1,59 @@
+.workspace-shell,
+.workspace-main,
+.workspace-content,
+.workspace-page-header,
+.workspace-header-metrics,
+.workspace-topbar,
+.workspace-breadcrumbs,
+.workspace-topbar-actions,
+.workspace-info-banner,
+.workspace-control-bar,
+.workspace-control-group,
+.workspace-stat-grid,
+.workspace-analytics-grid,
+.workspace-secondary-grid {
+  min-width: 0;
+}
+
+.workspace-main > *,
+.workspace-content > *,
+.workspace-page-header > *,
+.workspace-analytics-grid > *,
+.workspace-secondary-grid > * {
+  min-width: 0;
+}
+
+.workspace-safe-copy,
+.workspace-shell h1,
+.workspace-shell h2,
+.workspace-shell h3,
+.workspace-shell p,
+.workspace-shell span,
+.workspace-shell strong,
+.workspace-shell td,
+.workspace-shell th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workspace-media-box {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.workspace-media-box > img,
+.workspace-media-box > picture,
+.workspace-media-box img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.workspace-table-shell,
+.portfolio-table-shell,
+.chart-shell {
+  min-width: 0;
+  max-width: 100%;
+}

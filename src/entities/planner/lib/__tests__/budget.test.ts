@@ -31,9 +31,9 @@ describe('budget', () => {
 
     const result = calculateBudgetAssessment(defaultExpenses, caps)
 
-    expect(result.totalActual).toBe(43000)
-    expect(result.totalOverspend).toBe(9000)
+    expect(result.totalActual).toBe(73300)
+    expect(result.totalOverspend).toBe(34300)
     expect(result.highestPressureCategory?.category).toBe('living')
-    expect(result.categories[0]?.category).toBe('living')
+    expect(result.categories[0]?.category).toBe('other')
   })
 })

@@ -3,7 +3,7 @@ import type { HouseholdData, PersistedPlannerSnapshot } from '../types/planner'
 import { validateHouseholdData } from './validation'
 
 const STORAGE_KEY = 'family-asset-planner:data'
-export const PLANNER_DATA_VERSION = 5
+export const PLANNER_DATA_VERSION = 6
 
 export function loadHouseholdData(): HouseholdData {
   if (typeof window === 'undefined') {
@@ -16,7 +16,16 @@ export function loadHouseholdData(): HouseholdData {
   }
 
   try {
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw) as unknown
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      typeof (parsed as { version?: unknown }).version === 'number' &&
+      (parsed as { version: number }).version !== PLANNER_DATA_VERSION
+    ) {
+      return defaultHouseholdData
+    }
     const validation = validateHouseholdData(parsed)
     if (!validation.ok) {
       return defaultHouseholdData

@@ -1059,7 +1059,7 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   font-size: 0.92rem;
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .portfolio-code-cell {
@@ -1116,7 +1116,8 @@
 }
 
 .portfolio-preview-card {
-  min-height: 100%;
+  min-height: 0;
+  align-content: start;
 }
 
 .pill-portfolio-good {
@@ -3548,6 +3549,10 @@
   gap: 14px;
 }
 
+.dash-priority-main > * {
+  min-width: 0;
+}
+
 .dash-priority-copy {
   display: grid;
   gap: 12px;
@@ -3626,6 +3631,10 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
+}
+
+.dash-task-item-head > div {
+  min-width: 0;
 }
 
 .dash-task-index {
@@ -3868,6 +3877,10 @@
   align-items: start;
 }
 
+.dash-legend-list li > div {
+  min-width: 0;
+}
+
 .dash-dot {
   width: 10px;
   height: 10px;
@@ -4098,6 +4111,11 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 10px;
+  min-width: 0;
+}
+
+.dash-goal-title > div {
+  min-width: 0;
 }
 
 .dash-goal-title strong {
@@ -4179,20 +4197,23 @@
 }
 
 .dash-goal-side {
-  min-width: 204px;
+  min-width: 148px;
   display: grid;
   justify-items: end;
   gap: 5px;
+  text-align: right;
 }
 
 .dash-goal-side strong {
   color: #405650;
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .dash-goal-side p {
   color: #97a19c;
   font-size: 0.76rem;
+  overflow-wrap: anywhere;
 }
 
 .dash-risk-grid {
@@ -4301,6 +4322,11 @@
   min-width: 0;
 }
 
+.dash-board-info > div,
+.dash-portfolio-item > div {
+  min-width: 0;
+}
+
 .dash-board-icon {
   width: 26px;
   height: 26px;
@@ -4344,13 +4370,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 62px;
+  min-width: 0;
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
   font-size: 0.76rem;
   font-weight: 600;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 
 .dash-board-pill-danger {
@@ -4398,16 +4425,19 @@
 
 .dash-suggest-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 
 .dash-suggest-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icon copy'
+    '. action';
   align-items: start;
   gap: 12px;
-  min-height: 116px;
+  min-height: 0;
   padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(21, 54, 42, 0.06);
@@ -4419,6 +4449,7 @@
 }
 
 .dash-suggest-icon {
+  grid-area: icon;
   width: 36px;
   height: 36px;
   border-radius: 10px;
@@ -4433,14 +4464,15 @@
 .dash-suggest-card strong {
   display: block;
   color: #304840;
-  font-size: 0.91rem;
+  font-size: 0.87rem;
+  line-height: 1.45;
 }
 
 .dash-suggest-card p {
   margin-top: 6px;
   color: #8b9992;
-  font-size: 0.77rem;
-  line-height: 1.45;
+  font-size: 0.75rem;
+  line-height: 1.6;
 }
 
 .dash-suggest-icon-danger {
@@ -4459,14 +4491,18 @@
 }
 
 .dash-suggest-card .dash-mini-btn {
-  margin-top: 12px;
+  grid-area: action;
+  margin-top: 2px;
+  justify-self: start;
 }
 
 .dash-suggest-meta {
   display: inline-flex;
+  flex-wrap: wrap;
   margin-top: 8px;
   color: #97a39d;
   font-size: 0.73rem;
+  line-height: 1.45;
 }
 
 .dash-suggest-arrow {
@@ -5803,13 +5839,160 @@ body {
 }
 
 .portfolio-preview-link {
+  display: block;
+  width: 100%;
   overflow: hidden;
 }
 
 .portfolio-preview-image,
 .portfolio-preview-image-wide {
+  display: block;
   max-width: 100%;
   height: auto;
+  margin-inline: auto;
+}
+
+.portfolio-preview-media {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.portfolio-preview-link picture {
+  display: block;
+  width: 100%;
+}
+
+.portfolio-preview-image-wide {
+  width: 100%;
+  max-width: 520px;
+}
+
+.content-panel,
+.setting-card,
+.signal-card,
+.workspace-stat-card,
+.workspace-cash-card,
+.workspace-side-metric {
+  min-width: 0;
+}
+
+.dash-suggest-grid {
+  align-items: stretch;
+}
+
+.dash-suggest-card {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  min-height: 0;
+}
+
+.dash-suggest-copy {
+  grid-area: copy;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dash-suggest-card strong {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.dash-suggest-card p {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.62;
+}
+
+.dash-suggest-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  line-height: 1.45;
+}
+
+.dash-suggest-card .dash-mini-btn,
+.dash-suggest-card .dash-task-done-note {
+  grid-area: action;
+  align-self: start;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scenario-compare-grid {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.scenario-compare-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.scenario-card-title {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.scenario-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 2px 0 0;
+}
+
+.scenario-card-status {
+  margin: 2px 0 0;
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.scenario-card-note {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #7f8a84;
+}
+
+.scenario-recommend-card {
+  padding: 16px 18px;
+}
+
+.portfolio-preview-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.portfolio-preview-link {
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  padding: 10px;
+}
+
+.portfolio-preview-media {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.portfolio-preview-image {
+  width: 100%;
+  max-width: 343px;
+}
+
+.portfolio-preview-image-wide {
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+  object-fit: contain;
 }
 
 .dash-structure-chart,
@@ -5840,6 +6023,20 @@ body {
   }
 
   .workspace-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-suggest-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dash-suggest-card .dash-mini-btn,
+  .dash-suggest-card .dash-task-done-note {
+    grid-area: action;
+    justify-self: start;
+  }
+
+  .scenario-form {
     grid-template-columns: 1fr;
   }
 }

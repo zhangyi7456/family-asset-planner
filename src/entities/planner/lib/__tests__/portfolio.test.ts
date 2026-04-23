@@ -7,20 +7,20 @@ import {
 
 describe('portfolio', () => {
   it('calculates linkage metrics from household assets and cashflow', () => {
-    const linkage = calculatePortfolioLinkage(defaultHouseholdData, 30600)
+    const linkage = calculatePortfolioLinkage(defaultHouseholdData, 38300)
 
-    expect(linkage.investableAssets).toBeCloseTo(1097600)
-    expect(linkage.portfolioTrackedValue).toBeCloseTo(484600)
-    expect(linkage.portfolioCoverageRatio).toBeCloseTo(57.349112426035504)
+    expect(linkage.investableAssets).toBeCloseTo(2075170)
+    expect(linkage.portfolioTrackedValue).toBeCloseTo(1062870)
+    expect(linkage.portfolioCoverageRatio).toBeCloseTo(90.84358974358975)
     expect(linkage.growthTargetRatio).toBe(45)
   })
 
   it('calculates aggregated position metrics', () => {
     const positions = calculatePortfolioPositions(defaultHouseholdData)
 
-    expect(positions.totalMarketValue).toBeCloseTo(484600)
-    expect(positions.totalNetProfit).toBeCloseTo(36770)
-    expect(positions.totalTargetWeight).toBe(85)
-    expect(positions.largestPositionCode).toBe('159941')
+    expect(positions.totalMarketValue).toBeCloseTo(1062870)
+    expect(positions.totalNetProfit).toBeCloseTo(92593.2)
+    expect(positions.totalTargetWeight).toBe(100)
+    expect(positions.largestPositionCode).toBe('512890')
   })
 })

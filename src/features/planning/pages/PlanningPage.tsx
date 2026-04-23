@@ -526,11 +526,11 @@ export function PlanningPage() {
                   return (
                     <article
                       key={profile.id}
-                      className={`signal-card ${
+                      className={`signal-card scenario-compare-card ${
                         result.isOnTrack ? 'signal-card-good' : 'signal-card-warn'
                       }`}
                     >
-                      <strong>{profile.label}</strong>
+                      <strong className="scenario-card-title">{profile.label}</strong>
                       <div className="scenario-form">
                         <label className="field">
                           <span>每月投入</span>
@@ -563,14 +563,14 @@ export function PlanningPage() {
                           />
                         </label>
                       </div>
-                      <span className="signal-value">
+                      <span className="signal-value scenario-card-status">
                         {result.isOnTrack ? '可按期完成' : '存在缺口'}
                       </span>
-                      <p className="muted">
+                      <p className="muted scenario-card-note">
                         目标日预计 {formatCurrency(result.projectedAtTarget)}，缺口{' '}
                         {formatCurrency(result.targetGap)}。
                       </p>
-                      <p className="muted">
+                      <p className="muted scenario-card-note">
                         预计完成时间：
                         {result.projectedCompletionDate
                           ? formatDateLabel(result.projectedCompletionDate)
@@ -582,9 +582,9 @@ export function PlanningPage() {
               </div>
 
               {preferredScenario && (
-                <article className="signal-card signal-card-good">
-                  <strong>推荐方案</strong>
-                  <p>
+                <article className="signal-card signal-card-good scenario-recommend-card">
+                  <strong className="scenario-card-title">推荐方案</strong>
+                  <p className="scenario-card-note">
                     当前对比中更优的是 {preferredScenario.profileLabel}，目标缺口为{' '}
                     {formatCurrency(preferredScenario.targetGap)}。
                   </p>

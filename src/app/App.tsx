@@ -6,6 +6,8 @@ import { usePlannerData } from '../entities/planner/context/usePlannerData'
 import { formatCurrency, formatDateTime } from '../entities/planner/lib/format'
 import { withTaskContext } from '../entities/planner/lib/task-context'
 import '../App.css'
+import '../styles/workspace-shell.css'
+import '../styles/task-surface.css'
 
 const DashboardPage = lazy(() =>
   import('../features/dashboard/pages/DashboardPage').then((module) => ({
@@ -264,7 +266,9 @@ function App() {
     metrics.monthlyFreeCashflow,
     readinessSteps,
   ])
-  const recentActivities = data.activityLog.slice(0, 5)
+  const recentActivities = [...data.activityLog]
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp))
+    .slice(0, 5)
   const notificationCount = notificationItems.length
 
   useEffect(() => {

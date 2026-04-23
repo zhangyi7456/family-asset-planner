@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import type { EChartsOption } from 'echarts'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { TaskCompletionBanner } from '../../../shared/ui/task/TaskCompletionBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { calculateBudgetAssessment, loadExpenseBudgetCaps } from '../../../entities/planner/lib/budget'
 import { createDiagnosisReport } from '../../../entities/planner/lib/diagnosis'
 import { calculatePortfolioLinkage } from '../../../entities/planner/lib/portfolio'
@@ -151,7 +153,7 @@ function diagnosisPriorityLabel(priority: 'high' | 'medium' | 'low') {
   return '低优先级'
 }
 
-function diagnosisPriorityTone(priority: 'high' | 'medium' | 'low') {
+function diagnosisPriorityTone(priority: 'high' | 'medium' | 'low'): 'danger' | 'warn' | 'good' {
   if (priority === 'high') {
     return 'danger'
   }
@@ -887,15 +889,15 @@ export function DashboardPage() {
         <>
           <section className="workspace-analytics-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>任务首页</h2>
-                  <p className="caption">先处理最关键的问题，再继续查看结构与趋势面板。</p>
-                </div>
-                <span className="pill pill-quiet">
-                  {diagnosisReport.overallScore} 分 / {diagnosisReport.grade} 级
-                </span>
-              </div>
+              <PanelHeader
+                title="任务首页"
+                description="先处理最关键的问题，再继续查看结构与趋势面板。"
+                meta={
+                  <span className="pill pill-quiet">
+                    {diagnosisReport.overallScore} 分 / {diagnosisReport.grade} 级
+                  </span>
+                }
+              />
 
               {topSignal ? (
                 <div className="dash-priority-main">
@@ -949,42 +951,28 @@ export function DashboardPage() {
             </section>
 
             <aside className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>优先动作</h2>
-                  <p className="caption">按顺序执行，而不是同时推进所有事项。</p>
-                </div>
-              </div>
+              <PanelHeader title="优先动作" description="按顺序执行，而不是同时推进所有事项。" />
 
-              <div className="dash-task-list">
+              <div className="task-action-stack">
                 {actionRows.slice(0, 3).map((item, index) => (
-                  <article
+                  <TaskActionCard
                     key={item.title}
-                    className={`dash-task-item ${item.completed ? 'dash-task-item-done' : ''}`}
-                  >
-                    <div className="dash-task-item-head">
-                      <span className="dash-task-index">{index + 1}</span>
-                      <div>
-                        <strong>{item.title}</strong>
-                        <p>{item.owner}</p>
-                      </div>
-                      <span
-                        className={`dash-board-pill ${
-                          item.completed ? 'dash-board-pill-good' : `dash-board-pill-${item.tone}`
-                        }`}
-                      >
-                        {item.completed ? '已处理' : item.label}
-                      </span>
-                    </div>
-                    <p className="dash-task-detail">{item.detail}</p>
-                    {item.completed ? (
-                      <span className="dash-task-done-note">本轮已完成处理，可继续下一项。</span>
-                    ) : (
-                      <Link className="dash-mini-btn" to={item.href}>
-                        打开对应模块
-                      </Link>
-                    )}
-                  </article>
+                    icon={String(index + 1)}
+                    title={item.title}
+                    detail={item.detail}
+                    meta={item.completed ? '本轮已完成处理，可继续下一项。' : item.owner}
+                    badge={item.completed ? '已处理' : item.label}
+                    tone={item.completed ? 'good' : item.tone}
+                    completed={item.completed}
+                    compact
+                    action={
+                      item.completed ? null : (
+                        <Link className="inline-action" to={item.href}>
+                          打开对应模块
+                        </Link>
+                      )
+                    }
+                  />
                 ))}
               </div>
             </aside>
@@ -1240,36 +1228,29 @@ export function DashboardPage() {
             </section>
 
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>执行建议</h2>
-                  <p className="caption">把诊断结论拆成可执行动作，直接进入对应模块处理。</p>
-                </div>
-              </div>
-              <div className="dash-suggest-grid">
+              <PanelHeader
+                title="执行建议"
+                description="把诊断结论拆成可执行动作，直接进入对应模块处理。"
+              />
+              <div className="task-action-grid">
                 {actionRows.map((item) => (
-                  <article
+                  <TaskActionCard
                     key={item.title}
-                    className={`dash-suggest-card ${item.completed ? 'dash-suggest-card-done' : ''}`}
-                  >
-                    <span className={`dash-suggest-icon dash-suggest-icon-${item.tone}`}>
-                      {item.owner.slice(0, 1)}
-                    </span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.detail}</p>
-                      <span className="dash-suggest-meta">
-                        {item.owner} · {item.completed ? '已处理' : item.label}
-                      </span>
-                    </div>
-                    {item.completed ? (
-                      <span className="dash-task-done-note">已完成</span>
-                    ) : (
-                      <Link className="dash-mini-btn" to={item.href}>
-                        去处理
-                      </Link>
-                    )}
-                  </article>
+                    icon={item.owner.slice(0, 1)}
+                    title={item.title}
+                    detail={item.detail}
+                    meta={`${item.owner} · ${item.completed ? '已处理' : item.label}`}
+                    badge={item.completed ? '已处理' : item.label}
+                    tone={item.completed ? 'good' : item.tone}
+                    completed={item.completed}
+                    action={
+                      item.completed ? null : (
+                        <Link className="dash-mini-btn" to={item.href}>
+                          去处理
+                        </Link>
+                      )
+                    }
+                  />
                 ))}
               </div>
             </section>

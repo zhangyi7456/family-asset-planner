@@ -1352,12 +1352,12 @@ export function PortfolioPage() {
               </div>
             ) : (
               <a
-                className="portfolio-preview-link"
+                className="portfolio-preview-link workspace-media-box"
                 href={portfolioStrategyImage}
                 target="_blank"
                 rel="noreferrer"
               >
-                <picture>
+                <picture className="portfolio-preview-media">
                   <source srcSet={portfolioStrategyImageWebp} type="image/webp" />
                   <img
                     className="portfolio-preview-image portfolio-preview-image-wide"
