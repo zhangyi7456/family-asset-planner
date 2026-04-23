@@ -6,6 +6,7 @@
 项目管理视角的当前进度可见：
 
 - [PROJECT_STATUS.md](/Users/zhangyi/Documents/财务管理大师/PROJECT_STATUS.md)
+- [NEXT_PHASE_PLAN.md](/Users/zhangyi/Documents/财务管理大师/NEXT_PHASE_PLAN.md)
 
 ## 当前能力
 
@@ -153,6 +154,7 @@ npm run preview:host
 常用验证命令：
 
 ```bash
+npm run lint
 npm run build
 ```
 
