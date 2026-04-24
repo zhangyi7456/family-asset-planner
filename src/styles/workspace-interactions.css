@@ -1,0 +1,78 @@
+.empty-state {
+  padding: 18px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(18, 18, 18, 0.12);
+  background: #fbfbf8;
+  color: #7f7f77;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.primary-action,
+.secondary-action,
+.inline-action,
+.dash-mini-btn {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.primary-action:hover,
+.secondary-action:hover,
+.inline-action:hover,
+.dash-mini-btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 12px;
+}
+
+.inline-action,
+.dash-mini-btn {
+  min-height: 32px;
+  padding-inline: 10px;
+  border-radius: 10px;
+}
+
+.workspace-table td:last-child,
+.portfolio-table td:last-child {
+  width: 140px;
+}
+
+.workspace-table td:last-child .inline-action,
+.workspace-table td:last-child .danger-action,
+.portfolio-table td:last-child .inline-action,
+.portfolio-table td:last-child .danger-action {
+  justify-content: center;
+}
+
+.card-actions,
+.portfolio-table-actions {
+  gap: 8px;
+}
+
+.workspace-table-shell {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 900px) {
+  .primary-action,
+  .secondary-action,
+  .inline-action,
+  .dash-mini-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .workspace-table td:last-child,
+  .portfolio-table td:last-child {
+    width: auto;
+  }
+}

@@ -61,7 +61,7 @@ export const activityAreaLabels: Record<ActivityArea, string> = {
   liabilities: '负债管理',
   cashflow: '收支记录',
   goals: '目标规划',
-  portfolio: '投资组合',
+  portfolio: '资产配置',
   system: '系统操作',
 }
 

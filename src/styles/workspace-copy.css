@@ -1,0 +1,131 @@
+.workspace-stat-card span,
+.workspace-cash-card span,
+.workspace-side-metric span,
+.field span {
+  font-size: 0.76rem;
+  letter-spacing: 0.01em;
+}
+
+.workspace-stat-card strong {
+  margin-top: 24px;
+  font-size: clamp(1.45rem, 1.9vw, 2.35rem);
+}
+
+.workspace-stat-card p,
+.workspace-cash-card p,
+.workspace-side-metric p,
+.summary-card p,
+.setting-card p,
+.signal-card p {
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.section-heading {
+  margin-bottom: 14px;
+}
+
+.section-heading h2,
+.dash-card-head h3 {
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+.section-heading .caption,
+.dash-card-head p {
+  font-size: 0.79rem;
+}
+
+.summary-card strong,
+.signal-card strong,
+.setting-card strong,
+.workspace-table td strong {
+  font-size: 0.94rem;
+  line-height: 1.4;
+}
+
+.summary-value,
+.signal-value {
+  font-size: 1.5rem;
+}
+
+.workspace-breadcrumbs strong,
+.workspace-page-header h1,
+.workspace-page-header p,
+.workspace-info-banner strong,
+.workspace-info-banner p,
+.workspace-notice strong,
+.workspace-notice p,
+.workspace-stat-card strong,
+.workspace-stat-card p,
+.workspace-cash-card strong,
+.workspace-cash-card p,
+.workspace-side-metric strong,
+.workspace-side-metric p,
+.summary-card strong,
+.summary-card p,
+.setting-card strong,
+.setting-card p,
+.signal-card strong,
+.signal-card p,
+.dash-overview-item strong,
+.dash-overview-item p,
+.dash-risk-card strong,
+.dash-risk-card p,
+.dash-stat-box strong,
+.dash-stat-box span,
+.dash-stat-box p,
+.dash-board-row strong,
+.dash-board-row p,
+.dash-suggest-card strong,
+.dash-suggest-card p,
+.dash-task-item strong,
+.dash-task-item p,
+.workspace-sidebar-card strong,
+.workspace-sidebar-card p,
+.workspace-cell-subtle,
+.portfolio-code-cell strong,
+.portfolio-code-cell span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workspace-nav-link,
+.workspace-nav-sublink,
+.workspace-chip,
+.pill,
+.dash-board-pill,
+.inline-action,
+.primary-action,
+.secondary-action {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.workspace-nav-link,
+.workspace-nav-sublink {
+  align-items: flex-start;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.workspace-table,
+.portfolio-table {
+  table-layout: fixed;
+}
+
+.workspace-table th,
+.workspace-table td,
+.portfolio-table th,
+.portfolio-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.portfolio-table tbody td {
+  white-space: normal;
+}

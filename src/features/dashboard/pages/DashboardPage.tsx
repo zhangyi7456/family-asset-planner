@@ -4,6 +4,7 @@ import type { EChartsOption } from 'echarts'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { TaskCompletionBanner } from '../../../shared/ui/task/TaskCompletionBanner'
 import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
 import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { calculateBudgetAssessment, loadExpenseBudgetCaps } from '../../../entities/planner/lib/budget'
 import { createDiagnosisReport } from '../../../entities/planner/lib/diagnosis'
@@ -579,8 +580,11 @@ export function DashboardPage() {
   const setupSubtitle = hasAnyRecordedData
     ? '汇聚全球资产配置智慧，结合您家庭的财务目标与风险偏好，为财富增长与生活品质提供全方位规划支持。'
     : '当前还没有录入任何家庭数据。建议先补齐资产、收支和目标三项基础信息，再查看诊断和组合建议。'
-  const topSignal = diagnosisReport.signals[0] ?? null
   const completedTaskSet = new Set(data.completedTasks.map((item) => item.task))
+  const topSignal =
+    diagnosisReport.signals.find((item) => !completedTaskSet.has(item.title)) ??
+    diagnosisReport.signals[0] ??
+    null
   const weakestDimension =
     [...diagnosisReport.dimensions].sort((left, right) => left.score - right.score)[0] ?? null
   const diagnosisRows = [...diagnosisReport.dimensions]
@@ -599,13 +603,23 @@ export function DashboardPage() {
       task,
       returnTo: '/',
     })
-  const actionRows = diagnosisReport.actions.slice(0, 4).map((item) => ({
-    ...item,
-    href: dashboardTaskHref(item.href, item.title),
-    label: diagnosisPriorityLabel(item.priority),
-    tone: diagnosisPriorityTone(item.priority),
-    completed: completedTaskSet.has(item.title),
-  }))
+  const actionRows = [...diagnosisReport.actions]
+    .map((item) => ({
+      ...item,
+      href: dashboardTaskHref(item.href, item.title),
+      label: diagnosisPriorityLabel(item.priority),
+      tone: diagnosisPriorityTone(item.priority),
+      completed: completedTaskSet.has(item.title),
+    }))
+    .sort((left, right) => {
+      if (left.completed !== right.completed) {
+        return left.completed ? 1 : -1
+      }
+
+      const priorityWeight = { high: 0, medium: 1, low: 2 }
+      return priorityWeight[left.priority] - priorityWeight[right.priority]
+    })
+    .slice(0, 4)
   const dashboardTopStats = [
     {
       label: '总值',
@@ -722,24 +736,20 @@ export function DashboardPage() {
 
           <section className="workspace-analytics-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>12 个月总值变化曲线</h2>
-                  <p className="caption">跟踪总资产、总负债和净资产的月度变化，用于判断整体财务趋势。</p>
-                </div>
-              </div>
+              <PanelHeader
+                title="12 个月总值变化曲线"
+                description="跟踪总资产、总负债和净资产的月度变化，用于判断整体财务趋势。"
+              />
               <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
                 <PlannerChart option={trendChartOption} height={360} />
               </Suspense>
             </section>
 
             <aside className="content-panel workspace-side-metrics">
-              <div className="section-heading">
-                <div>
-                  <h2>全局收益概览</h2>
-                  <p className="caption">用更聚焦的方式看整体表现与当前短板。</p>
-                </div>
-              </div>
+              <PanelHeader
+                title="全局收益概览"
+                description="用更聚焦的方式看整体表现与当前短板。"
+              />
 
               {performanceRows.map((item) => (
                 <article key={item.label} className="workspace-side-metric">
@@ -750,28 +760,32 @@ export function DashboardPage() {
               ))}
 
               {topSignal ? (
-                <article className="signal-card signal-card-warn">
-                  <strong>当前最重要的问题</strong>
-                  <p>{topSignal.title}</p>
-                  <p className="muted">{topSignal.detail}</p>
-                  <Link
-                    className="inline-action"
-                    to={topSignal.href ? dashboardTaskHref(topSignal.href, topSignal.title) : '/diagnosis'}
-                  >
-                    去处理
-                  </Link>
-                </article>
+                <TaskActionCard
+                  icon="要"
+                  title={`当前最重要的问题：${topSignal.title}`}
+                  detail={topSignal.detail}
+                  meta="优先处理后，再回来看结构与趋势面板。"
+                  badge={diagnosisPriorityLabel(topSignal.priority)}
+                  tone={topSignal.priority === 'high' ? 'danger' : 'warn'}
+                  compact
+                  action={
+                    <Link
+                      className="inline-action"
+                      to={topSignal.href ? dashboardTaskHref(topSignal.href, topSignal.title) : '/diagnosis'}
+                    >
+                      去处理
+                    </Link>
+                  }
+                />
               ) : null}
             </aside>
           </section>
 
           <section className="content-panel">
-            <div className="section-heading">
-              <div>
-                <h2>月度现金流汇总</h2>
-                <p className="caption">把收入、预算、储蓄目标和投资资产放在同一层看，更快判断资金调度空间。</p>
-              </div>
-            </div>
+            <PanelHeader
+              title="月度现金流汇总"
+              description="把收入、预算、储蓄目标和投资资产放在同一层看，更快判断资金调度空间。"
+            />
 
             <div className="workspace-cash-card-grid">
               {cashflowBoards.map((item) => (
@@ -887,19 +901,16 @@ export function DashboardPage() {
 
       {hasAnyRecordedData ? (
         <>
-          <section className="workspace-analytics-grid">
-            <section className="content-panel">
-              <PanelHeader
-                title="任务首页"
-                description="先处理最关键的问题，再继续查看结构与趋势面板。"
-                meta={
-                  <span className="pill pill-quiet">
-                    {diagnosisReport.overallScore} 分 / {diagnosisReport.grade} 级
-                  </span>
-                }
-              />
-
-              {topSignal ? (
+          <FocusActionSection
+            focusTitle="任务首页"
+            focusDescription="先处理最关键的问题，再继续查看结构与趋势面板。"
+            focusMeta={
+              <span className="pill pill-quiet">
+                {diagnosisReport.overallScore} 分 / {diagnosisReport.grade} 级
+              </span>
+            }
+            focusContent={
+              topSignal ? (
                 <div className="dash-priority-main">
                   <div className="dash-priority-copy">
                     {completedTaskSet.has(topSignal.title) ? (
@@ -947,12 +958,11 @@ export function DashboardPage() {
                     ) : null}
                   </div>
                 </div>
-              ) : null}
-            </section>
-
-            <aside className="content-panel">
-              <PanelHeader title="优先动作" description="按顺序执行，而不是同时推进所有事项。" />
-
+              ) : null
+            }
+            actionsTitle="优先动作"
+            actionsDescription="按顺序执行，而不是同时推进所有事项。"
+            actionsContent={
               <div className="task-action-stack">
                 {actionRows.slice(0, 3).map((item, index) => (
                   <TaskActionCard
@@ -975,18 +985,16 @@ export function DashboardPage() {
                   />
                 ))}
               </div>
-            </aside>
-          </section>
+            }
+          />
 
           <section className="section-grid workspace-secondary-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>当前规划视图</h2>
-                  <p className="caption">基于家庭现时财务状况生成的核心概览。</p>
-                </div>
-                <span className="pill pill-quiet">家庭成员 {data.profile.members} 人</span>
-              </div>
+              <PanelHeader
+                title="当前规划视图"
+                description="基于家庭现时财务状况生成的核心概览。"
+                meta={<span className="pill pill-quiet">家庭成员 {data.profile.members} 人</span>}
+              />
               <div className="dash-overview-grid">
                 {overviewCards.map((item) => (
                   <article key={item.label} className="dash-overview-item">
@@ -998,15 +1006,15 @@ export function DashboardPage() {
             </section>
 
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>资产结构</h2>
-                  <p className="caption">当前资产在各类别的分布情况。</p>
-                </div>
-                <Link className="secondary-action" to="/assets">
-                  查看详情
-                </Link>
-              </div>
+              <PanelHeader
+                title="资产结构"
+                description="当前资产在各类别的分布情况。"
+                actions={
+                  <Link className="secondary-action" to="/assets">
+                    查看详情
+                  </Link>
+                }
+              />
               <div className="dash-structure">
                 <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
                   <div className="dash-structure-chart">
@@ -1032,12 +1040,10 @@ export function DashboardPage() {
 
           <section className="section-grid workspace-secondary-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>收支与变化摘要</h2>
-                  <p className="caption">看近 6 个月现金流，再看三项关键变化。</p>
-                </div>
-              </div>
+              <PanelHeader
+                title="收支与变化摘要"
+                description="看近 6 个月现金流，再看三项关键变化。"
+              />
               <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
                 <PlannerChart option={cashflowChartOption} height={300} />
               </Suspense>
@@ -1057,12 +1063,10 @@ export function DashboardPage() {
             </section>
 
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>规划基线</h2>
-                  <p className="caption">基于当前口径做长期财务推演。</p>
-                </div>
-              </div>
+              <PanelHeader
+                title="规划基线"
+                description="基于当前口径做长期财务推演。"
+              />
               <ul className="dash-baseline-list">
                 {baselineRows.map((item) => (
                   <li key={item.label}>
@@ -1078,15 +1082,15 @@ export function DashboardPage() {
           </section>
 
           <section className="content-panel">
-            <div className="section-heading">
-              <div>
-                <h2>目标进度</h2>
-                <p className="caption">按重要性与目标日期跟踪各项目标达成情况。</p>
-              </div>
-              <Link className="secondary-action" to="/planning">
-                查看目标页
-              </Link>
-            </div>
+            <PanelHeader
+              title="目标进度"
+              description="按重要性与目标日期跟踪各项目标达成情况。"
+              actions={
+                <Link className="secondary-action" to="/planning">
+                  查看目标页
+                </Link>
+              }
+            />
             <div className="workspace-table-shell">
               <table className="workspace-table">
                 <thead>
@@ -1128,15 +1132,15 @@ export function DashboardPage() {
 
           <section className="section-grid workspace-secondary-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>诊断维度摘要</h2>
-                  <p className="caption">把最弱的环节先暴露出来，避免首页只展示漂亮数据。</p>
-                </div>
-                <Link className="secondary-action" to="/diagnosis">
-                  查看诊断详情
-                </Link>
-              </div>
+              <PanelHeader
+                title="诊断维度摘要"
+                description="把最弱的环节先暴露出来，避免首页只展示漂亮数据。"
+                actions={
+                  <Link className="secondary-action" to="/diagnosis">
+                    查看诊断详情
+                  </Link>
+                }
+              />
               <div className="dash-risk-grid">
                 {diagnosisRows.map((item) => (
                   <article key={item.title} className={`dash-risk-card dash-risk-card-${item.tone}`}>
@@ -1154,15 +1158,15 @@ export function DashboardPage() {
             </section>
 
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>预算预警看板</h2>
-                  <p className="caption">与收支项目目标对比，发现异常支出。</p>
-                </div>
-                <Link className="secondary-action" to="/cashflow">
-                  查看全部
-                </Link>
-              </div>
+              <PanelHeader
+                title="预算预警看板"
+                description="与收支项目目标对比，发现异常支出。"
+                actions={
+                  <Link className="secondary-action" to="/cashflow">
+                    查看全部
+                  </Link>
+                }
+              />
               <div className="dash-board-list">
                 {budgetRows.map((item) => (
                   <article key={item.title} className={`dash-board-row dash-board-row-${item.tone}`}>
@@ -1184,15 +1188,15 @@ export function DashboardPage() {
 
           <section className="section-grid workspace-secondary-grid">
             <section className="content-panel">
-              <div className="section-heading">
-                <div>
-                  <h2>投资组合联动看板</h2>
-                  <p className="caption">与投资组合目标对比，动态追踪配置程度。</p>
-                </div>
-                <Link className="secondary-action" to="/portfolio">
-                  查看组合详情
-                </Link>
-              </div>
+              <PanelHeader
+                title="投资组合联动看板"
+                description="与投资组合目标对比，动态追踪配置程度。"
+                actions={
+                  <Link className="secondary-action" to="/portfolio">
+                    查看组合详情
+                  </Link>
+                }
+              />
               <div className="dash-board-list">
                 {portfolioRows.map((item) => {
                   const drift = item.current - item.target

@@ -1,6 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { TaskContextBanner } from '../../../shared/ui/task/TaskContextBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { useQueryPanelFocus } from '../../../shared/hooks/useQueryPanelFocus'
 import { formatCurrency } from '../../../entities/planner/lib/format'
@@ -33,6 +36,15 @@ export function AssetsPage() {
     data.assets[0] ?? { id: '', name: '暂无', category: 'other' as AssetCategory, amount: 0 },
   )
   const activeCategories = new Set(data.assets.map((item) => item.category)).size
+  const investmentAsset = data.assets
+    .filter((item) => item.category === 'investment')
+    .reduce((sum, item) => sum + item.amount, 0)
+  const cashAsset = data.assets
+    .filter((item) => item.category === 'cash')
+    .reduce((sum, item) => sum + item.amount, 0)
+  const housingAsset = data.assets
+    .filter((item) => item.category === 'housing')
+    .reduce((sum, item) => sum + item.amount, 0)
 
   const visibleAssets = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -60,6 +72,51 @@ export function AssetsPage() {
       return right.amount - left.amount
     })
   }, [data.assets, filterCategory, search, sortBy])
+
+  const ledgerHref = search
+    ? `/assets?search=${encodeURIComponent(search)}&panel=ledger`
+    : '/assets?panel=ledger'
+  const assetActions = [
+    {
+      title: largestAsset.amount > 0 ? `先核对 ${largestAsset.name}` : '先录入第一笔资产',
+      detail:
+        largestAsset.amount > 0
+          ? `当前最大资产金额 ${formatCurrency(largestAsset.amount)}，建议先确认估值口径和备注信息。`
+          : '补录现金、投资、房产等核心资产后，结构分析才会准确。',
+      badge: largestAsset.amount > 0 ? '最大资产' : '基础动作',
+      tone: largestAsset.amount > 0 ? 'warn' : 'neutral',
+      href: largestAsset.amount > 0
+        ? `/assets?search=${encodeURIComponent(largestAsset.name)}&panel=ledger`
+        : '/assets?panel=form',
+      label: largestAsset.amount > 0 ? '查看台账' : '新增资产',
+    },
+    {
+      title:
+        metrics.investmentAssetRatio > 55 ? '控制风险资产暴露' : '继续补齐稳健资产底座',
+      detail:
+        metrics.investmentAssetRatio > 55
+          ? `当前投资资产约 ${formatCurrency(investmentAsset)}，占比偏高时应同步关注现金与保障资产。`
+          : `当前现金类资产约 ${formatCurrency(cashAsset)}，可继续补齐应急金和稳健资产。`,
+      badge:
+        metrics.investmentAssetRatio > 55 ? '配置偏进取' : '底座优先',
+      tone: metrics.investmentAssetRatio > 55 ? 'warn' : 'good',
+      href: '/assets?panel=summary',
+      label: '查看结构',
+    },
+    {
+      title: housingAsset > 0 ? '补充非房产资产说明' : '记录长期大额资产',
+      detail:
+        housingAsset > 0
+          ? `房产与长期资产约 ${formatCurrency(
+              housingAsset,
+            )}，建议补充流动性和使用属性说明。`
+          : '若家庭存在房产、保单或长期权益类资产，建议统一纳入总账。',
+      badge: housingAsset > 0 ? '长期资产' : '待补录',
+      tone: housingAsset > 0 ? 'good' : 'warn',
+      href: '/assets?panel=form',
+      label: '去补录',
+    },
+  ] as const
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -136,26 +193,94 @@ export function AssetsPage() {
         </article>
       </section>
 
+      <FocusActionSection
+        focusTitle="当前资产焦点"
+        focusDescription="这一页先回答两件事：当前最大资产是否可靠，以及家庭资产结构是否足够平衡。"
+        focusMeta={
+          <span className="pill pill-quiet">
+            {data.assets.length > 0 ? '资产已录入' : '等待录入'}
+          </span>
+        }
+        focusContent={
+          <div className="task-action-grid">
+            <TaskActionCard
+              icon="资"
+              title={largestAsset.amount > 0 ? largestAsset.name : '当前还没有资产记录'}
+              detail={
+                largestAsset.amount > 0
+                  ? `当前最大资产为 ${assetCategoryLabels[largestAsset.category]}，金额 ${formatCurrency(
+                      largestAsset.amount,
+                    )}。`
+                  : '建议先补录现金、投资或房产类资产，再开始做结构判断。'
+              }
+              badge={largestAsset.amount > 0 ? '最大资产' : '待建立'}
+              tone={largestAsset.amount > 0 ? 'warn' : 'neutral'}
+              meta={largestAsset.amount > 0 ? '优先核对估值与备注' : '录入后自动纳入总览'}
+              action={
+                <Link className="inline-action" to={ledgerHref}>
+                  查看台账
+                </Link>
+              }
+            />
+            <TaskActionCard
+              icon="配"
+              title="家庭资产结构"
+              detail="资产页不是只记录金额，更重要的是判断现金、投资、房产与保障类资产是否失衡。"
+              badge={`投资占比 ${metrics.investmentAssetRatio.toFixed(1)}%`}
+              tone={metrics.investmentAssetRatio > 55 ? 'warn' : 'good'}
+              meta={`现金 ${formatCurrency(cashAsset)} / 投资 ${formatCurrency(
+                investmentAsset,
+              )}`}
+              action={
+                <Link className="inline-action" to="/assets?panel=summary">
+                  查看结构
+                </Link>
+              }
+            />
+          </div>
+        }
+        actionsDescription="优先做 1 到 2 个动作，把资产总账补全到可分析状态。"
+        actionsContent={
+          <div className="task-action-stack">
+            {assetActions.map((item) => (
+              <TaskActionCard
+                key={item.title}
+                title={item.title}
+                detail={item.detail}
+                badge={item.badge}
+                tone={item.tone}
+                compact
+                action={
+                  <Link className="inline-action" to={item.href}>
+                    {item.label}
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+        }
+      />
+
       <section
         className={`content-panel ${panelClass('ledger')}`}
         data-panel="ledger"
       >
-        <div className="section-heading">
-          <div>
-            <h2>资产台账</h2>
-            <p className="caption">按照名称、类别和金额管理家庭资产台账，刷新页面后数据仍会保留。</p>
-          </div>
-          <button
-            className="primary-action"
-            type="button"
-            onClick={() => {
-              const target = document.querySelector('[data-panel="form"]')
-              target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }}
-          >
-            {editingId ? '继续编辑资产' : '添加资产'}
-          </button>
-        </div>
+        <PanelHeader
+          title="资产台账"
+          description="按照名称、类别和金额管理家庭资产台账，刷新页面后数据仍会保留。"
+          actions={
+            <button
+              className="primary-action"
+              type="button"
+              onClick={() => {
+                const target = document.querySelector('[data-panel="form"]')
+                target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            >
+              {editingId ? '继续编辑资产' : '添加资产'}
+            </button>
+          }
+        />
 
         <div className="workspace-filter-row">
           <label className="field">
@@ -241,7 +366,7 @@ export function AssetsPage() {
           </table>
         </div>
         {visibleAssets.length === 0 && (
-          <p className="empty-state">当前筛选条件下没有资产记录。</p>
+          <p className="empty-state">当前筛选下暂无资产记录，可调整筛选条件或继续补录。</p>
         )}
 
         <div className="workspace-table-footer">
@@ -252,12 +377,10 @@ export function AssetsPage() {
 
       <section className="section-grid">
         <section className={`content-panel ${panelClass('form')}`} data-panel="form">
-          <div className="section-heading">
-            <div>
-              <h2>{editingId ? '编辑资产' : '新增资产'}</h2>
-              <p className="caption">采用表单录入方式补齐台账，录入后会立即回写到总览与分析模块。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title={editingId ? '编辑资产' : '新增资产'}
+            description="采用表单录入方式补齐台账，录入后会立即回写到总览与分析模块。"
+          />
 
           <form className="data-form" onSubmit={handleSubmit}>
             <label className="field">
@@ -317,12 +440,10 @@ export function AssetsPage() {
         </section>
 
         <aside className={`content-panel ops-stack ${panelClass('summary')}`} data-panel="summary">
-          <div className="section-heading">
-            <div>
-              <h2>资产结构摘要</h2>
-              <p className="caption">按已录入台账自动归类，用于核对资产桶与长期配置是否平衡。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title="资产结构摘要"
+            description="按已录入台账自动归类，用于核对资产桶与长期配置是否平衡。"
+          />
 
           <div className="summary-grid ops-summary-grid">
             <article className="summary-card">

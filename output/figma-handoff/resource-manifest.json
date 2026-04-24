@@ -1,0 +1,47 @@
+{
+  "project": {
+    "name": "家庭资产规划大师",
+    "type": "workspace-web-app",
+    "shell": "left-sidebar-topbar-workspace"
+  },
+  "navigation": [
+    {
+      "group": "仪表盘",
+      "items": [
+        { "label": "概览", "route": "/" },
+        { "label": "资产", "route": "/assets" }
+      ]
+    },
+    {
+      "group": "分析",
+      "items": [
+        { "label": "实时分析", "route": "/cashflow" },
+        { "label": "负债管理", "route": "/liabilities" },
+        { "label": "目标推进", "route": "/planning" },
+        { "label": "资产配置", "route": "/portfolio" },
+        { "label": "诊断中心", "route": "/diagnosis" }
+      ]
+    },
+    {
+      "group": "系统",
+      "items": [
+        { "label": "数据与备份", "route": "/settings" }
+      ]
+    }
+  ],
+  "assets": [
+    { "name": "hero", "path": "src/assets/hero.png" },
+    { "name": "portfolio-strategy", "path": "src/assets/portfolio-strategy.png" },
+    { "name": "portfolio-strategy-webp", "path": "src/assets/portfolio-strategy.webp" }
+  ],
+  "pageEntryFiles": [
+    "src/features/dashboard/pages/DashboardPage.tsx",
+    "src/features/assets/pages/AssetsPage.tsx",
+    "src/features/analysis/pages/CashflowPage.tsx",
+    "src/features/liabilities/pages/LiabilitiesPage.tsx",
+    "src/features/planning/pages/PlanningPage.tsx",
+    "src/features/portfolio/pages/PortfolioPage.tsx",
+    "src/features/diagnosis/pages/DiagnosisPage.tsx",
+    "src/features/settings/pages/SettingsPage.tsx"
+  ]
+}

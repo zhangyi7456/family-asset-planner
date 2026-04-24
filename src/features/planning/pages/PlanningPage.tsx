@@ -1,6 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { TaskContextBanner } from '../../../shared/ui/task/TaskContextBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { useQueryPanelFocus } from '../../../shared/hooks/useQueryPanelFocus'
 import {
@@ -310,6 +313,63 @@ export function PlanningPage() {
     },
   ]
 
+  const priorityGoalHref = planSummary.urgentGoal
+    ? `/planning?focus=urgent&goal=${planSummary.urgentGoal.id}&panel=goals`
+    : '/planning?panel=goals'
+  const scenarioHref = selectedScenarioGoal
+    ? `/planning?goal=${selectedScenarioGoal.id}&panel=summary`
+    : '/planning?panel=summary'
+
+  const planningActions = [
+    {
+      title: planSummary.urgentGoal ? `优先推进 ${planSummary.urgentGoal.title}` : '先建立第一个目标',
+      detail: planSummary.urgentGoal
+        ? `距离目标日约 ${formatMonths(planSummary.urgentGoal.monthsLeft)}，理论月投入 ${formatCurrency(
+            planSummary.urgentGoal.requiredMonthly,
+          )}。`
+        : '先补录至少一个目标，系统才能判断资金推进节奏。',
+      badge: planSummary.urgentGoal ? '优先级最高' : '基础动作',
+      tone: planSummary.urgentGoal ? 'warn' : 'neutral',
+      href: priorityGoalHref,
+      label: planSummary.urgentGoal ? '查看目标' : '新增目标',
+    },
+    {
+      title:
+        planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+          ? '先修复月度投入能力'
+          : '当前现金流能支撑目标推进',
+      detail:
+        planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+          ? `当前理论需求比可投入现金流多 ${formatCurrency(
+              planSummary.totalRequiredMonthly - Math.max(metrics.monthlyFreeCashflow, 0),
+            )}。`
+          : `当前月度投入覆盖率约 ${formatPercent(planSummary.coverageRatio)}，可继续细化目标优先级。`,
+      badge:
+        planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+          ? '先去收支页'
+          : '状态可控',
+      tone:
+        planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+          ? 'danger'
+          : 'good',
+      href: '/cashflow?type=expense&panel=budget',
+      label:
+        planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+          ? '调整收支'
+          : '查看预算',
+    },
+    {
+      title: selectedScenarioGoal ? `模拟 ${selectedScenarioGoal.title}` : '比较情景方案',
+      detail: selectedScenarioGoal
+        ? '先用方案 A/B 比较同一目标的完成日期，再决定月度投入是否需要上调。'
+        : '先选定一个目标，再进行投入与收益假设模拟。',
+      badge: preferredScenario ? `推荐 ${preferredScenario.profileLabel}` : '情景模拟',
+      tone: preferredScenario?.isOnTrack ? 'good' : 'warn',
+      href: scenarioHref,
+      label: '查看模拟',
+    },
+  ] as const
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -408,20 +468,106 @@ export function PlanningPage() {
         ))}
       </section>
 
+      <FocusActionSection
+        focusTitle="当前推进焦点"
+        focusDescription="这一页先回答两件事：当前最该优先推进哪个目标，以及现金流是否撑得住。"
+        focusMeta={
+          <span className="pill pill-quiet">
+            {planSummary.urgentGoal ? '优先目标已定位' : '等待目标录入'}
+          </span>
+        }
+        focusContent={
+          <div className="task-action-grid">
+            <TaskActionCard
+              icon="目"
+              title={
+                planSummary.urgentGoal
+                  ? planSummary.urgentGoal.title
+                  : '当前还没有可计算的优先目标'
+              }
+              detail={
+                planSummary.urgentGoal
+                  ? `当前缺口 ${formatCurrency(planSummary.urgentGoal.gap)}，目标日期在 ${formatDateLabel(
+                      planSummary.urgentGoal.targetDate,
+                    )}。`
+                  : '建议先录入目标金额、当前准备和目标日期，再进入推进判断。'
+              }
+              badge={planSummary.urgentGoal ? '最优先' : '待建立'}
+              tone={planSummary.urgentGoal ? 'warn' : 'neutral'}
+              meta={
+                planSummary.urgentGoal
+                  ? `理论月投入 ${formatCurrency(planSummary.urgentGoal.requiredMonthly)}`
+                  : '录入后自动生成推进节奏'
+              }
+              action={
+                <Link className="inline-action" to={priorityGoalHref}>
+                  查看目标
+                </Link>
+              }
+            />
+            <TaskActionCard
+              icon="流"
+              title="月度投入能力"
+              detail={
+                planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+                  ? '当前自由现金流不足以同时支撑全部目标，需要先做目标排序或收支修复。'
+                  : '当前自由现金流基本能覆盖近期目标，后续重点是提升执行节奏。'
+              }
+              badge={
+                planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+                  ? '存在压力'
+                  : '基本匹配'
+              }
+              tone={
+                planSummary.totalRequiredMonthly > Math.max(metrics.monthlyFreeCashflow, 0)
+                  ? 'danger'
+                  : 'good'
+              }
+              meta={`可投入 ${formatCurrency(metrics.monthlyFreeCashflow)} / 需求 ${formatCurrency(
+                planSummary.totalRequiredMonthly,
+              )}`}
+              action={
+                <Link className="inline-action" to="/cashflow?type=expense&panel=budget">
+                  去看收支
+                </Link>
+              }
+            />
+          </div>
+        }
+        actionsDescription="先做 1 到 2 件最有价值的事，不要同时推进全部目标。"
+        actionsContent={
+          <div className="task-action-stack">
+            {planningActions.map((item) => (
+              <TaskActionCard
+                key={item.title}
+                title={item.title}
+                detail={item.detail}
+                badge={item.badge}
+                tone={item.tone}
+                compact
+                action={
+                  <Link className="inline-action" to={item.href}>
+                    {item.label}
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+        }
+      />
+
       <section
         className={`content-panel ${panelClass('goals')}`}
         data-panel="goals"
       >
-        <div className="section-heading">
-          <div>
-            <h2>目标清单</h2>
-            <p className="caption">先看完成度、资金缺口和剩余期限，再决定新增结余优先投向哪里。</p>
-          </div>
-          <span className="muted">共 {goalHealth.length} 个目标</span>
-        </div>
+        <PanelHeader
+          title="目标清单"
+          description="先看完成度、资金缺口和剩余期限，再决定新增结余优先投向哪里。"
+          meta={<span className="muted">共 {goalHealth.length} 个目标</span>}
+        />
 
         {goalHealth.length === 0 ? (
-          <p className="empty-state">当前还没有目标，请先新增一条目标计划。</p>
+          <p className="empty-state">当前还没有目标计划，先新增一条目标后再进入推进判断。</p>
         ) : (
           <>
             <div className="workspace-table-shell">
@@ -493,12 +639,10 @@ export function PlanningPage() {
           className={`content-panel ops-stack ${panelClass('summary')}`}
           data-panel="summary"
         >
-          <div className="section-heading">
-            <div>
-              <h2>情景模拟 A/B</h2>
-              <p className="caption">同一目标下并排比较两套方案的完成时间与缺口。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title="情景模拟 A/B"
+            description="同一目标下并排比较两套方案的完成时间与缺口。"
+          />
 
           {selectedScenarioGoal ? (
             <>
@@ -592,7 +736,7 @@ export function PlanningPage() {
               )}
             </>
           ) : (
-            <p className="empty-state">请先新增至少一个目标，再使用情景模拟。</p>
+            <p className="empty-state">当前没有可模拟的目标，先补录目标后再比较不同方案。</p>
           )}
         </section>
 
@@ -600,12 +744,10 @@ export function PlanningPage() {
           className={`content-panel ${panelClass('form')}`}
           data-panel="form"
         >
-          <div className="section-heading">
-            <div>
-              <h2>{editingId ? '编辑目标' : '新增目标'}</h2>
-              <p className="caption">录入目标名称、类别、金额、日期和备注，进度会实时联动全站。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title={editingId ? '编辑目标' : '新增目标'}
+            description="录入目标名称、类别、金额、日期和备注，进度会实时联动全站。"
+          />
 
           <form className="data-form" onSubmit={handleSubmit}>
             <label className="field">
@@ -688,12 +830,10 @@ export function PlanningPage() {
         className={`content-panel ${panelClass('insights')}`}
         data-panel="insights"
       >
-        <div className="section-heading">
-          <div>
-            <h2>推进建议</h2>
-            <p className="caption">不是简单看完成度，而是看现金流能否支撑目标节奏。</p>
-          </div>
-        </div>
+        <PanelHeader
+          title="推进建议"
+          description="不是简单看完成度，而是看现金流能否支撑目标节奏。"
+        />
 
         <div className="insight-grid">
           {strategicInsights.map((insight) => (

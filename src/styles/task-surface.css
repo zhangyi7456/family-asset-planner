@@ -88,15 +88,15 @@
 .task-action-card-copy strong {
   display: block;
   margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.92rem;
+  line-height: 1.4;
   color: #29433c;
 }
 
 .task-action-card-copy p {
   margin: 6px 0 0;
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: 0.76rem;
+  line-height: 1.58;
   color: #81908a;
   overflow-wrap: anywhere;
 }
@@ -124,8 +124,8 @@
 
 .task-action-card-meta {
   min-width: 0;
-  font-size: 0.73rem;
-  line-height: 1.45;
+  font-size: 0.72rem;
+  line-height: 1.42;
   color: #96a19b;
   overflow-wrap: anywhere;
 }
@@ -175,11 +175,11 @@
 }
 
 .task-action-card-compact .task-action-card-copy strong {
-  font-size: 0.84rem;
+  font-size: 0.87rem;
 }
 
 .task-action-card-compact .task-action-card-copy p {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
 }
 
 @media (max-width: 900px) {

@@ -60,9 +60,9 @@ export const workspaceNavGroups: WorkspaceNavGroup[] = [
       },
       {
         to: '/portfolio',
-        label: '组合执行',
+        label: '资产配置',
         section: '仪表盘',
-        description: '跟踪持仓、再平衡与组合联动情况。',
+        description: '跟踪资产配置、持仓、再平衡与结构联动。',
         group: '分析',
       },
       {

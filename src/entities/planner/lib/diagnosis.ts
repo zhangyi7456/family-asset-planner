@@ -170,7 +170,7 @@ export function createDiagnosisReport(data: HouseholdData): DiagnosisReport {
       detail: `整体目标资金准备度约 ${metrics.goalReadiness.toFixed(1)}%。`,
     },
     {
-      title: '投资组合执行度',
+      title: '资产配置执行度',
       score: Math.round(investmentScore),
       summary: scoreTone(investmentScore),
       detail:
@@ -291,8 +291,8 @@ export function createDiagnosisReport(data: HouseholdData): DiagnosisReport {
       detail:
         positions.positions.length > 0
           ? '根据当前持仓偏离、集中度和增长层目标，执行小步再平衡。'
-          : '先补录投资组合持仓，再做仓位漂移与再平衡建议。',
-      owner: '投资组合',
+          : '先补录资产配置持仓，再做仓位漂移与再平衡建议。',
+      owner: '资产配置',
       priority: positions.positions.length > 0 ? 'medium' : 'low',
       href: '/portfolio?sortKey=targetWeightDrift&sortDirection=desc&panel=rebalance',
     }),
@@ -304,7 +304,7 @@ export function createDiagnosisReport(data: HouseholdData): DiagnosisReport {
       : grade === 'B'
         ? '家庭财务基本稳定，但仍存在需要持续优化的结构性问题。'
         : grade === 'C'
-          ? '家庭财务可运行，但现金流、目标推进或组合执行存在明显短板。'
+          ? '家庭财务可运行，但现金流、目标推进或资产配置执行存在明显短板。'
           : '家庭财务基础较弱，建议优先修复安全垫、现金流和杠杆问题。'
 
   return {

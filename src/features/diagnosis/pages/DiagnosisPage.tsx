@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TaskCompletionBanner } from '../../../shared/ui/task/TaskCompletionBanner'
 import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
 import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { createDiagnosisReport } from '../../../entities/planner/lib/diagnosis'
@@ -21,10 +22,27 @@ function priorityLabel(priority: 'high' | 'medium' | 'low') {
 export function DiagnosisPage() {
   const [searchParams] = useSearchParams()
   const { data, metrics } = usePlannerData()
+  const [taskView, setTaskView] = useState<'pending' | 'all'>('pending')
   const report = useMemo(() => createDiagnosisReport(data), [data])
-  const completedTaskSet = new Set(data.completedTasks.map((item) => item.task))
-
-  const topSignal = report.signals[0] ?? null
+  const completedTaskSet = useMemo(
+    () => new Set(data.completedTasks.map((item) => item.task)),
+    [data.completedTasks],
+  )
+  const filteredSignals = useMemo(
+    () =>
+      taskView === 'pending'
+        ? report.signals.filter((item) => !completedTaskSet.has(item.title))
+        : report.signals,
+    [completedTaskSet, report.signals, taskView],
+  )
+  const filteredActions = useMemo(
+    () =>
+      taskView === 'pending'
+        ? report.actions.filter((item) => !completedTaskSet.has(item.title))
+        : report.actions,
+    [completedTaskSet, report.actions, taskView],
+  )
+  const topSignal = filteredSignals[0] ?? null
   const totalGoalGap = data.goals.reduce(
     (sum, item) => sum + Math.max(item.targetAmount - item.currentAmount, 0),
     0,
@@ -130,30 +148,53 @@ export function DiagnosisPage() {
         </section>
 
         <aside className="content-panel ops-stack">
-          <PanelHeader title="最高优先级问题" description="先处理最影响安全边界和执行效率的问题。" />
+          <PanelHeader
+            title="最高优先级问题"
+            description="先处理最影响安全边界和执行效率的问题。"
+            meta={
+              <div className="workspace-control-group">
+                <button
+                  className={`workspace-chip ${taskView === 'pending' ? 'workspace-chip-strong' : ''}`}
+                  type="button"
+                  onClick={() => setTaskView('pending')}
+                >
+                  仅看待处理
+                </button>
+                <button
+                  className={`workspace-chip ${taskView === 'all' ? 'workspace-chip-strong' : ''}`}
+                  type="button"
+                  onClick={() => setTaskView('all')}
+                >
+                  查看全部
+                </button>
+              </div>
+            }
+          />
 
           {topSignal ? (
-            <article
-              className={`signal-card ${completedTaskSet.has(topSignal.title) ? 'signal-card-success' : 'signal-card-danger'}`}
-            >
-              <strong>{topSignal.title}</strong>
-              <p>{topSignal.detail}</p>
-              <div className="form-actions">
-                <span className="pill">
-                  {completedTaskSet.has(topSignal.title) ? '已处理' : priorityLabel(topSignal.priority)}
-                </span>
-                {topSignal.href && !completedTaskSet.has(topSignal.title) ? (
+            <TaskActionCard
+              icon={completedTaskSet.has(topSignal.title) ? '已' : '高'}
+              title={topSignal.title}
+              detail={topSignal.detail}
+              meta={completedTaskSet.has(topSignal.title) ? '本轮已完成处理。' : '先处理最影响安全边界的问题。'}
+              badge={completedTaskSet.has(topSignal.title) ? '已处理' : priorityLabel(topSignal.priority)}
+              tone={completedTaskSet.has(topSignal.title) ? 'good' : 'danger'}
+              completed={completedTaskSet.has(topSignal.title)}
+              action={
+                topSignal.href && !completedTaskSet.has(topSignal.title) ? (
                   <Link
-                    className="secondary-action"
+                    className="inline-action"
                     to={buildTaskHref(topSignal.href, topSignal.title)}
                   >
                     前往处理
                   </Link>
-                ) : null}
-              </div>
-            </article>
+                ) : null
+              }
+            />
           ) : (
-            <p className="empty-state">当前暂无明显高优先级问题。</p>
+            <p className="empty-state">
+              {taskView === 'pending' ? '当前待处理问题已清空，可切换到“查看全部”回看历史项。' : '当前暂无明显高优先级问题。'}
+            </p>
           )}
 
           <article className="setting-card ops-list-card">
@@ -174,8 +215,8 @@ export function DiagnosisPage() {
               </li>
               <li>
                 <div>
-                  <strong>目标与投资组合</strong>
-                  <p>用于判断未来推进能力和组合执行情况。</p>
+                  <strong>目标与资产配置</strong>
+                  <p>用于判断未来推进能力和资产配置执行情况。</p>
                 </div>
               </li>
             </ul>
@@ -201,76 +242,87 @@ export function DiagnosisPage() {
         </div>
       </section>
 
-      <section className="section-grid">
-        <section className="content-panel">
-          <PanelHeader title="风险信号" description="按优先级排序，帮助你先做对家庭财务最有影响的动作。" />
-
-          <div className="task-action-stack">
-            {report.signals.map((signal) => (
-              <TaskActionCard
-                key={signal.title}
-                icon={signal.priority === 'high' ? '高' : signal.priority === 'medium' ? '中' : '低'}
-                title={signal.title}
-                detail={signal.detail}
-                meta={completedTaskSet.has(signal.title) ? '本轮已完成处理。' : '风险信号'}
-                badge={completedTaskSet.has(signal.title) ? '已处理' : priorityLabel(signal.priority)}
-                tone={
-                  completedTaskSet.has(signal.title)
-                    ? 'good'
-                    : signal.priority === 'high'
-                      ? 'danger'
-                      : signal.priority === 'medium'
-                        ? 'warn'
-                        : 'neutral'
-                }
-                completed={completedTaskSet.has(signal.title)}
-                action={
-                  signal.href && !completedTaskSet.has(signal.title) ? (
-                    <Link className="inline-action" to={buildTaskHref(signal.href, signal.title)}>
-                      去处理
-                    </Link>
-                  ) : null
-                }
-              />
-            ))}
-          </div>
-        </section>
-
-        <aside className="content-panel">
-          <PanelHeader title="优先动作" description="按修复顺序执行，而不是同时推进所有事项。" />
-
-          <div className="task-action-stack">
-            {report.actions.map((action, index) => (
-              <TaskActionCard
-                key={action.title}
-                icon={String(index + 1)}
-                title={action.title}
-                detail={action.detail}
-                meta={completedTaskSet.has(action.title) ? '本轮已完成处理，可继续下一项。' : action.owner}
-                badge={completedTaskSet.has(action.title) ? '已处理' : priorityLabel(action.priority)}
-                tone={
-                  completedTaskSet.has(action.title)
-                    ? 'good'
-                    : action.priority === 'high'
-                      ? 'danger'
-                      : action.priority === 'medium'
-                        ? 'warn'
-                        : 'neutral'
-                }
-                completed={completedTaskSet.has(action.title)}
-                compact
-                action={
-                  completedTaskSet.has(action.title) ? null : (
-                    <Link className="inline-action" to={buildTaskHref(action.href, action.title)}>
-                      打开对应模块
-                    </Link>
-                  )
-                }
-              />
-            ))}
-          </div>
-        </aside>
-      </section>
+      <FocusActionSection
+        focusTitle="风险信号"
+        focusDescription="按优先级排序，帮助你先做对家庭财务最有影响的动作。"
+        focusContent={
+          filteredSignals.length === 0 ? (
+            <p className="empty-state">当前筛选下暂无风险信号，可切换筛选后再查看。</p>
+          ) : (
+            <div className="task-action-stack">
+              {filteredSignals.map((signal) => (
+                <TaskActionCard
+                  key={signal.title}
+                  icon={signal.priority === 'high' ? '高' : signal.priority === 'medium' ? '中' : '低'}
+                  title={signal.title}
+                  detail={signal.detail}
+                  meta={completedTaskSet.has(signal.title) ? '本轮已完成处理。' : '风险信号'}
+                  badge={completedTaskSet.has(signal.title) ? '已处理' : priorityLabel(signal.priority)}
+                  tone={
+                    completedTaskSet.has(signal.title)
+                      ? 'good'
+                      : signal.priority === 'high'
+                        ? 'danger'
+                        : signal.priority === 'medium'
+                          ? 'warn'
+                          : 'neutral'
+                  }
+                  completed={completedTaskSet.has(signal.title)}
+                  action={
+                    signal.href && !completedTaskSet.has(signal.title) ? (
+                      <Link className="inline-action" to={buildTaskHref(signal.href, signal.title)}>
+                        去处理
+                      </Link>
+                    ) : null
+                  }
+                />
+              ))}
+            </div>
+          )
+        }
+        actionsTitle="优先动作"
+        actionsDescription={
+          taskView === 'pending'
+            ? '当前优先显示尚未处理的动作。'
+            : '按修复顺序执行，而不是同时推进所有事项。'
+        }
+        actionsContent={
+          filteredActions.length === 0 ? (
+            <p className="empty-state">当前筛选下暂无优先动作，可切换筛选后再查看。</p>
+          ) : (
+            <div className="task-action-stack">
+              {filteredActions.map((action, index) => (
+                <TaskActionCard
+                  key={action.title}
+                  icon={String(index + 1)}
+                  title={action.title}
+                  detail={action.detail}
+                  meta={completedTaskSet.has(action.title) ? '本轮已完成处理，可继续下一项。' : action.owner}
+                  badge={completedTaskSet.has(action.title) ? '已处理' : priorityLabel(action.priority)}
+                  tone={
+                    completedTaskSet.has(action.title)
+                      ? 'good'
+                      : action.priority === 'high'
+                        ? 'danger'
+                        : action.priority === 'medium'
+                          ? 'warn'
+                          : 'neutral'
+                  }
+                  completed={completedTaskSet.has(action.title)}
+                  compact
+                  action={
+                    completedTaskSet.has(action.title) ? null : (
+                      <Link className="inline-action" to={buildTaskHref(action.href, action.title)}>
+                        打开对应模块
+                      </Link>
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )
+        }
+      />
     </section>
   )
 }

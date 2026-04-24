@@ -1,6 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { TaskContextBanner } from '../../../shared/ui/task/TaskContextBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { useQueryPanelFocus } from '../../../shared/hooks/useQueryPanelFocus'
 import { formatCurrency, formatPercent } from '../../../entities/planner/lib/format'
@@ -29,6 +32,24 @@ export function LiabilitiesPage() {
     initialSort === 'amount-asc' || initialSort === 'name' ? initialSort : 'amount-desc',
   )
   const { panelClass } = useQueryPanelFocus(searchParams)
+
+  function highlightPanel(panelId: string) {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const element = document.querySelector<HTMLElement>(`[data-panel="${panelId}"]`)
+    if (!element) {
+      return
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    element.classList.add('panel-focus-active')
+
+    window.setTimeout(() => {
+      element.classList.remove('panel-focus-active')
+    }, 1400)
+  }
 
   const visibleLiabilities = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -83,6 +104,55 @@ export function LiabilitiesPage() {
   const largestLiability = visibleLiabilities[0] ?? null
   const averageLiability =
     data.liabilities.length > 0 ? metrics.totalLiabilities / data.liabilities.length : 0
+  const largestLiabilityOverall = data.liabilities.reduce(
+    (best, item) => (item.amount > best.amount ? item : best),
+    data.liabilities[0] ?? {
+      id: '',
+      name: '暂无负债',
+      category: 'other' as LiabilityCategory,
+      amount: 0,
+      notes: '',
+    },
+  )
+  const leverageTone =
+    metrics.liabilityRatio >= 45 ? 'danger' : metrics.liabilityRatio >= 25 ? 'warn' : 'good'
+  const largestLiabilityHref = largestLiabilityOverall.id
+    ? `/liabilities?search=${encodeURIComponent(largestLiabilityOverall.name)}&panel=ledger`
+    : '/liabilities?panel=form'
+  const liabilityActions = [
+    {
+      title: largestLiabilityOverall.amount > 0 ? `先核对 ${largestLiabilityOverall.name}` : '先补录第一笔负债',
+      detail:
+        largestLiabilityOverall.amount > 0
+          ? `当前最大负债 ${formatCurrency(largestLiabilityOverall.amount)}，建议先确认余额、备注和偿还顺序。`
+          : '先录入房贷、车贷或消费负债，系统才能正确判断杠杆和偿债压力。',
+      badge: largestLiabilityOverall.amount > 0 ? '最大负债' : '基础动作',
+      tone: largestLiabilityOverall.amount > 0 ? 'warn' : 'neutral',
+      href: largestLiabilityHref,
+      label: largestLiabilityOverall.amount > 0 ? '查看台账' : '新增负债',
+    },
+    {
+      title: metrics.liabilityRatio >= 45 ? '优先控制杠杆率' : '当前杠杆处于可控区间',
+      detail:
+        metrics.liabilityRatio >= 45
+          ? `当前资产负债率 ${formatPercent(metrics.liabilityRatio)}，新增投资前应先考虑降杠杆。`
+          : `当前资产负债率 ${formatPercent(metrics.liabilityRatio)}，可继续保持分层管理。`,
+      badge: metrics.liabilityRatio >= 45 ? '偿债优先' : '杠杆可控',
+      tone: leverageTone,
+      href: '/diagnosis',
+      label: '查看诊断',
+    },
+    {
+      title: liabilityBreakdown[0] ? `重点处理 ${liabilityBreakdown[0].label}` : '建立负债分类结构',
+      detail: liabilityBreakdown[0]
+        ? `${liabilityBreakdown[0].label} 当前占总负债 ${formatPercent(liabilityBreakdown[0].ratio)}。`
+        : '负债分类补齐后，才能更快判断偿还顺序和结构压力。',
+      badge: liabilityBreakdown[0] ? '结构重点' : '待补录',
+      tone: liabilityBreakdown[0] ? 'warn' : 'neutral',
+      href: '/liabilities?panel=summary',
+      label: '查看结构',
+    },
+  ] as const
   const liabilityStats = [
     {
       label: '负债总额',
@@ -145,6 +215,7 @@ export function LiabilitiesPage() {
     setCategory(target.category)
     setAmount(String(target.amount))
     setNotes(target.notes || '')
+    highlightPanel('form')
   }
 
   function cancelEdit() {
@@ -177,17 +248,85 @@ export function LiabilitiesPage() {
         ))}
       </section>
 
+      <FocusActionSection
+        focusTitle="当前负债焦点"
+        focusDescription="这一页先回答两件事：当前最大负债是否需要优先处理，以及杠杆率是否进入风险区间。"
+        focusMeta={
+          <span className="pill pill-quiet">
+            {data.liabilities.length > 0 ? '负债已录入' : '等待录入'}
+          </span>
+        }
+        focusContent={
+          <div className="task-action-grid">
+            <TaskActionCard
+              icon="债"
+              title={largestLiabilityOverall.amount > 0 ? largestLiabilityOverall.name : '当前还没有负债记录'}
+              detail={
+                largestLiabilityOverall.amount > 0
+                  ? `当前最大负债为 ${liabilityCategoryLabels[largestLiabilityOverall.category]}，金额 ${formatCurrency(
+                      largestLiabilityOverall.amount,
+                    )}。`
+                  : '先录入主要负债，系统才能判断杠杆与偿债优先级。'
+              }
+              badge={largestLiabilityOverall.amount > 0 ? '最大负债' : '待建立'}
+              tone={largestLiabilityOverall.amount > 0 ? 'warn' : 'neutral'}
+              meta={
+                largestLiabilityOverall.amount > 0
+                  ? largestLiabilityOverall.notes || '建议补充利率、期限或还款节奏'
+                  : '录入后自动联动净资产和诊断'
+              }
+              action={
+                <Link className="inline-action" to={largestLiabilityHref}>
+                  查看台账
+                </Link>
+              }
+            />
+            <TaskActionCard
+              icon="杠"
+              title="家庭杠杆状态"
+              detail="负债页不只是记录余额，更重要的是判断杠杆水平是否压缩了后续储蓄和投资空间。"
+              badge={`资产负债率 ${formatPercent(metrics.liabilityRatio)}`}
+              tone={leverageTone}
+              meta={`总负债 ${formatCurrency(metrics.totalLiabilities)}`}
+              action={
+                <Link className="inline-action" to="/diagnosis">
+                  查看诊断
+                </Link>
+              }
+            />
+          </div>
+        }
+        actionsDescription="先处理最有压力的负债，再回头补充结构和备注。"
+        actionsContent={
+          <div className="task-action-stack">
+            {liabilityActions.map((item) => (
+              <TaskActionCard
+                key={item.title}
+                title={item.title}
+                detail={item.detail}
+                badge={item.badge}
+                tone={item.tone}
+                compact
+                action={
+                  <Link className="inline-action" to={item.href}>
+                    {item.label}
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+        }
+      />
+
       <section
         className={`content-panel ${panelClass('ledger')}`}
         data-panel="ledger"
       >
-        <div className="section-heading">
-          <div>
-            <h2>负债台账</h2>
-            <p className="caption">先筛选，再按金额查看清单。当前保留录入、编辑与删除能力。</p>
-          </div>
-          <span className="muted">共 {visibleLiabilities.length} 条记录</span>
-        </div>
+        <PanelHeader
+          title="负债台账"
+          description="先筛选，再按金额查看清单。当前保留录入、编辑与删除能力。"
+          meta={<span className="muted">共 {visibleLiabilities.length} 条记录</span>}
+        />
 
         <div className="workspace-filter-row">
           <label className="field">
@@ -231,7 +370,7 @@ export function LiabilitiesPage() {
         </div>
 
         {visibleLiabilities.length === 0 ? (
-          <p className="empty-state">当前筛选条件下没有负债记录。</p>
+          <p className="empty-state">当前筛选下暂无负债记录，可调整筛选条件或继续补录。</p>
         ) : (
           <>
             <div className="workspace-table-shell">
@@ -290,12 +429,10 @@ export function LiabilitiesPage() {
           className={`content-panel ${panelClass('form')}`}
           data-panel="form"
         >
-          <div className="section-heading">
-            <div>
-              <h2>{editingId ? '编辑负债' : '新增负债'}</h2>
-              <p className="caption">录入顺序保持简洁：名称、类别、金额、备注。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title={editingId ? '编辑负债' : '新增负债'}
+            description="录入顺序保持简洁：名称、类别、金额、备注。"
+          />
 
           <form className="data-form" onSubmit={handleSubmit}>
             <label className="field">
@@ -357,12 +494,10 @@ export function LiabilitiesPage() {
           className={`content-panel ops-stack ${panelClass('summary')}`}
           data-panel="summary"
         >
-          <div className="section-heading">
-            <div>
-              <h2>压力分布</h2>
-              <p className="caption">先看负债集中在哪一类，再决定优先偿还顺序。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title="压力分布"
+            description="先看负债集中在哪一类，再决定优先偿还顺序。"
+          />
 
           <article className="setting-card ops-list-card">
             <strong>负债类别分布</strong>

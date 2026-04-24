@@ -1,7 +1,10 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { EChartsOption } from 'echarts'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { TaskContextBanner } from '../../../shared/ui/task/TaskContextBanner'
+import { TaskActionCard } from '../../../shared/ui/task/TaskActionCard'
+import { FocusActionSection } from '../../../shared/ui/workspace/FocusActionSection'
+import { PanelHeader } from '../../../shared/ui/workspace/PanelHeader'
 import { usePlannerData } from '../../../entities/planner/context/usePlannerData'
 import { useQueryPanelFocus } from '../../../shared/hooks/useQueryPanelFocus'
 import {
@@ -169,6 +172,57 @@ export function CashflowPage() {
       : topExpense
         ? `${topExpense.name} 当前约 ${formatCurrency(topExpense.value)}，可优先优化该项。`
         : '暂无支出数据，建议先录入固定支出后再分析结构。'
+  const budgetHref =
+    budgetAssessment.highestPressureCategory
+      ? `/cashflow?type=expense&search=${encodeURIComponent(
+          budgetAssessment.highestPressureCategory.label,
+        )}&panel=ledger`
+      : '/cashflow?panel=budget'
+  const cashflowActions = [
+    {
+      title:
+        metrics.monthlyFreeCashflow < 0 ? '先修复月度现金流' : '保持当前现金流结余',
+      detail:
+        metrics.monthlyFreeCashflow < 0
+          ? `当前每月资金缺口约 ${formatCurrency(
+              freeCashflowGap,
+            )}，应先压缩支出或提高稳定收入。`
+          : `当前每月可结余 ${formatCurrency(
+              metrics.monthlyFreeCashflow,
+            )}，建议明确分配到目标或投资。`,
+      badge: metrics.monthlyFreeCashflow < 0 ? '最高优先级' : '状态可控',
+      tone: metrics.monthlyFreeCashflow < 0 ? 'danger' : 'good',
+      href: '/cashflow?panel=ledger&type=expense',
+      label: metrics.monthlyFreeCashflow < 0 ? '查看支出' : '查看台账',
+    },
+    {
+      title:
+        budgetAssessment.totalOverspend > 0 ? '先处理预算超额类别' : '继续保持预算纪律',
+      detail:
+        budgetAssessment.totalOverspend > 0
+          ? `当前分类预算总超额约 ${formatCurrency(
+              budgetAssessment.totalOverspend,
+            )}，优先处理越线类别。`
+          : '当前预算上限没有明显越线，可继续按现有节奏执行。',
+      badge:
+        budgetAssessment.totalOverspend > 0
+          ? budgetAssessment.highestPressureCategory?.label ?? '预算超额'
+          : '预算平稳',
+      tone: budgetAssessment.totalOverspend > 0 ? 'warn' : 'good',
+      href: budgetHref,
+      label: budgetAssessment.totalOverspend > 0 ? '去处理' : '查看预算',
+    },
+    {
+      title: topExpense ? `优先优化 ${topExpense.name}` : '先补录主要支出',
+      detail: topExpense
+        ? `当前最大支出约 ${formatCurrency(topExpense.value)}，先处理最大项通常最有效。`
+        : '先录入生活、住房、教育等主要支出，系统才会生成结构判断。',
+      badge: topExpense ? '最大支出项' : '待补录',
+      tone: topExpense ? 'warn' : 'neutral',
+      href: '/cashflow?type=expense&panel=form',
+      label: topExpense ? '调整支出' : '新增支出',
+    },
+  ] as const
 
   const budgetSignals = [
     metrics.monthlyFreeCashflow < 0
@@ -441,26 +495,103 @@ export function CashflowPage() {
         </article>
       </section>
 
+      <FocusActionSection
+        focusTitle="当前现金流焦点"
+        focusDescription="这一页先回答两件事：现金流有没有失衡，以及最该先处理哪个预算压力点。"
+        focusMeta={
+          <span className="pill pill-quiet">
+            {visibleEntries.length > 0 ? '收支已录入' : '等待录入'}
+          </span>
+        }
+        focusContent={
+          <div className="task-action-grid">
+            <TaskActionCard
+              icon="流"
+              title={metrics.monthlyFreeCashflow < 0 ? '当前现金流为负' : '当前现金流为正'}
+              detail={
+                metrics.monthlyFreeCashflow < 0
+                  ? `每月资金缺口约 ${formatCurrency(
+                      freeCashflowGap,
+                    )}，需要先修复支出结构。`
+                  : `当前每月结余约 ${formatCurrency(
+                      metrics.monthlyFreeCashflow,
+                    )}，可以进入目标和投资分配。`
+              }
+              badge={metrics.monthlyFreeCashflow < 0 ? '优先修复' : '可继续规划'}
+              tone={metrics.monthlyFreeCashflow < 0 ? 'danger' : 'good'}
+              meta={`储蓄率 ${formatPercent(savingsRate)}`}
+              action={
+                <Link className="inline-action" to="/cashflow?panel=ledger&type=expense">
+                  查看台账
+                </Link>
+              }
+            />
+            <TaskActionCard
+              icon="预"
+              title={
+                budgetAssessment.highestPressureCategory
+                  ? `${budgetAssessment.highestPressureCategory.label} 压力最高`
+                  : '当前还没有明显预算压力'
+              }
+              detail={
+                budgetAssessment.highestPressureCategory
+                  ? `当前使用率 ${formatPercent(
+                      budgetAssessment.highestPressureCategory.usageRate,
+                    )}，建议优先处理该类别。`
+                  : '先设置预算上限并录入支出，系统会自动生成预算预警。'
+              }
+              badge={budgetAssessment.totalOverspend > 0 ? '预算超额' : '预算可控'}
+              tone={budgetAssessment.totalOverspend > 0 ? 'warn' : 'good'}
+              meta={
+                budgetAssessment.totalCap > 0
+                  ? `总使用率 ${formatPercent(
+                      (budgetAssessment.totalActual / budgetAssessment.totalCap) * 100,
+                    )}`
+                  : '等待预算上限'
+              }
+              action={
+                <Link className="inline-action" to={budgetHref}>
+                  查看预算
+                </Link>
+              }
+            />
+          </div>
+        }
+        actionsDescription="优先做 1 到 2 个收支动作，再回看是否需要调整目标和投资。"
+        actionsContent={
+          <div className="task-action-stack">
+            {cashflowActions.map((item) => (
+              <TaskActionCard
+                key={item.title}
+                title={item.title}
+                detail={item.detail}
+                badge={item.badge}
+                tone={item.tone}
+                compact
+                action={
+                  <Link className="inline-action" to={item.href}>
+                    {item.label}
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+        }
+      />
+
       <section className="workspace-analytics-grid">
         <section className={`content-panel ${panelClass('analysis')}`} data-panel="analysis">
-          <div className="section-heading">
-            <div>
-              <h2>收支分类对比</h2>
-              <p className="caption">从分类层面看收入来源与支出结构，帮助识别最应该优先调整的项目。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title="收支分类对比"
+            description="从分类层面看收入来源与支出结构，帮助识别最应该优先调整的项目。"
+          />
           <Suspense fallback={<div className="chart-loading">正在加载图表…</div>}>
             <PlannerChart option={categoryChartOption} height={340} />
           </Suspense>
         </section>
 
         <aside className="content-panel workspace-side-metrics">
-          <div className="section-heading">
-            <div>
-              <h2>现金流诊断</h2>
-              <p className="caption">直接给出结构性问题和预算信号。</p>
-            </div>
-          </div>
+          <PanelHeader title="现金流诊断" description="直接给出结构性问题和预算信号。" />
 
           <article className="workspace-side-metric">
             <span>最大支出项</span>
@@ -488,12 +619,10 @@ export function CashflowPage() {
           className={`content-panel ${panelClass('form')}`}
           data-panel="form"
         >
-          <div className="section-heading">
-            <div>
-              <h2>{editingId ? '编辑收支记录' : '收支录入'}</h2>
-              <p className="caption">统一维护月度收入与支出，首页现金流会实时联动更新。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title={editingId ? '编辑收支记录' : '收支录入'}
+            description="统一维护月度收入与支出，首页现金流会实时联动更新。"
+          />
 
           <form className="data-form" onSubmit={handleSubmit}>
             <label className="field">
@@ -577,12 +706,10 @@ export function CashflowPage() {
           className={`content-panel ops-stack ${panelClass('summary')}`}
           data-panel="summary"
         >
-          <div className="section-heading">
-            <div>
-              <h2>结构摘要</h2>
-              <p className="caption">把最大支出项、现金流状态和预算信号集中在右侧，避免和顶部 KPI 重复。</p>
-            </div>
-          </div>
+          <PanelHeader
+            title="结构摘要"
+            description="把最大支出项、现金流状态和预算信号集中在右侧，避免和顶部 KPI 重复。"
+          />
 
           <div className="workspace-side-metrics">
             <article className="workspace-side-metric">
@@ -612,12 +739,10 @@ export function CashflowPage() {
         className={`content-panel ${panelClass('ledger')}`}
         data-panel="ledger"
       >
-        <div className="section-heading">
-          <div>
-            <h2>收支台账</h2>
-            <p className="caption">支持按类型筛选与关键词搜索，便于快速定位具体记录。</p>
-          </div>
-        </div>
+        <PanelHeader
+          title="收支台账"
+          description="支持按类型筛选与关键词搜索，便于快速定位具体记录。"
+        />
 
         <div className="workspace-filter-row">
           <label className="field">
@@ -700,7 +825,7 @@ export function CashflowPage() {
           </table>
         </div>
         {visibleEntries.length === 0 && (
-          <p className="empty-state">当前筛选条件下没有收支记录。</p>
+          <p className="empty-state">当前筛选下暂无收支记录，可调整筛选条件或继续补录。</p>
         )}
       </section>
 
@@ -708,15 +833,15 @@ export function CashflowPage() {
         className={`content-panel ${panelClass('budget')}`}
         data-panel="budget"
       >
-        <div className="section-heading">
-          <div>
-            <h2>分类预算上限</h2>
-            <p className="caption">可按支出类别设置月度上限，系统会按上限自动生成预警。</p>
-          </div>
-          <button className="secondary-action" type="button" onClick={resetBudgetCaps}>
-            恢复推荐上限
-          </button>
-        </div>
+        <PanelHeader
+          title="分类预算上限"
+          description="可按支出类别设置月度上限，系统会按上限自动生成预警。"
+          actions={
+            <button className="secondary-action" type="button" onClick={resetBudgetCaps}>
+              恢复推荐上限
+            </button>
+          }
+        />
 
         <div className="allocation-grid">
           {(Object.keys(budgetCaps) as ExpenseCategory[]).map((category) => {
@@ -755,12 +880,10 @@ export function CashflowPage() {
         className={`content-panel ${panelClass('alerts')}`}
         data-panel="alerts"
       >
-        <div className="section-heading">
-          <div>
-            <h2>预算阈值提醒</h2>
-            <p className="caption">基于收支结构与分类上限自动生成预算预警。</p>
-          </div>
-        </div>
+        <PanelHeader
+          title="预算阈值提醒"
+          description="基于收支结构与分类上限自动生成预算预警。"
+        />
 
         <div className="insight-grid">
           {budgetSignals.map((signal) => (
