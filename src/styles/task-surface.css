@@ -2,11 +2,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 
 .panel-header-copy {
   min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .panel-header-copy h2 {
@@ -14,13 +16,13 @@
 }
 
 .panel-header-copy p {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .panel-header-side {
   display: grid;
   justify-items: end;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -28,7 +30,7 @@
 .panel-header-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 

@@ -2,13 +2,14 @@
 .workspace-cash-card span,
 .workspace-side-metric span,
 .field span {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   letter-spacing: 0.01em;
 }
 
 .workspace-stat-card strong {
-  margin-top: 24px;
-  font-size: clamp(1.45rem, 1.9vw, 2.35rem);
+  margin-top: 16px;
+  font-size: clamp(1.28rem, 1.65vw, 2rem);
+  line-height: 1.02;
 }
 
 .workspace-stat-card p,
@@ -17,8 +18,8 @@
 .summary-card p,
 .setting-card p,
 .signal-card p {
-  font-size: 0.8rem;
-  line-height: 1.55;
+  font-size: 0.76rem;
+  line-height: 1.42;
 }
 
 .section-heading {
@@ -27,26 +28,29 @@
 
 .section-heading h2,
 .dash-card-head h3 {
-  font-size: 1.16rem;
+  font-size: 1.04rem;
   letter-spacing: -0.02em;
+  line-height: 1.18;
 }
 
 .section-heading .caption,
 .dash-card-head p {
-  font-size: 0.79rem;
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .summary-card strong,
 .signal-card strong,
 .setting-card strong,
 .workspace-table td strong {
-  font-size: 0.94rem;
-  line-height: 1.4;
+  font-size: 0.88rem;
+  line-height: 1.28;
 }
 
 .summary-value,
 .signal-value {
-  font-size: 1.5rem;
+  font-size: 1.28rem;
+  line-height: 1.05;
 }
 
 .workspace-breadcrumbs strong,
@@ -102,7 +106,7 @@
   max-width: 100%;
   white-space: normal;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.22;
   overflow-wrap: anywhere;
 }
 
